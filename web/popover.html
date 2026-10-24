@@ -13,10 +13,13 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { margin: 0; background: var(--bg); }
+/* The popover is sized to the content; never show scroll bars (it can still scroll if the screen is too small). */
+html { overflow-x: hidden; }
+::-webkit-scrollbar { display: none; }
 body {
   color: var(--text); font: 12px/1.4 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; cursor: default;
-  width: 380px; padding: 12px; display: flex; flex-direction: column; gap: 10px;
+  width: 100%; padding: 12px; display: flex; flex-direction: column; gap: 10px;
 }
 .mono { font-family: var(--mono); }
 .cap { font-size: 10px; letter-spacing: .1em; color: var(--muted); font-weight: 600; }
@@ -153,7 +156,8 @@ document.addEventListener("click", (e) => {
   const tr = e.target.closest("[data-pid]");
   if (tr) {
     const pid = +tr.dataset.pid;
-    open.has(pid) ? open.delete(pid) : open.add(pid);
+    // Only one session expanded at a time keeps the popover compact.
+    open = open.has(pid) ? new Set() : new Set([pid]);
     render();
   }
 });

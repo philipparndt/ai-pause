@@ -254,7 +254,8 @@ static NSString *popoverHTML;
 	NSString *body = message.body;
 	NSDictionary *msg = [NSJSONSerialization JSONObjectWithData:[body dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
 	if ([msg[@"action"] isEqualToString:@"resize"] && popover) {
-		CGFloat h = MIN(MAX([msg[@"h"] doubleValue], 200), 900);
+		NSScreen *screen = controller.statusItem.button.window.screen ?: NSScreen.mainScreen;
+		CGFloat h = MIN(MAX([msg[@"h"] doubleValue], 200), NSHeight(screen.visibleFrame) - 40);
 		if (fabs(popover.contentSize.height - h) > 0.5) popover.contentSize = NSMakeSize(380, h);
 		return;
 	}
