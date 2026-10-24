@@ -36,6 +36,7 @@ struct PopoverView: View {
                 header(s)
                 tiles(s)
                 sessions(s)
+                if !s.hogs.isEmpty { hogs(s.hogs) }
                 footer
             }
             .padding(12)
@@ -179,6 +180,34 @@ struct PopoverView: View {
                             expanded = expanded == x.pid ? nil : x.pid
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // Non-agent processes (e.g. Microsoft Defender) that are busy right now. Shown only, never paused.
+    private func hogs(_ hogs: [Hog]) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Cap("OTHER CPU HOGS").padding(.horizontal, 4)
+            VStack(spacing: 0) {
+                ForEach(hogs) { h in
+                    HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(h.name == "wdavdaemon" ? "Microsoft Defender" : h.name).font(.system(size: 12, weight: .medium)).lineLimit(1)
+                            Text(h.top.prefix(2).map { "\($0.name) \(pct($0.pct))" }.joined(separator: " · "))
+                                .font(.mono(10)).foregroundStyle(Theme.muted).lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Text("NOT AN AGENT").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.muted)
+                            .frame(width: 70, alignment: .leading).lineLimit(1).minimumScaleFactor(0.8)
+                        BarChart(samples: h.history, color: Theme.red).frame(width: 92, height: 22)
+                        Text(pct(h.current)).font(.mono(12, .semibold)).foregroundStyle(Theme.red)
+                            .frame(width: 38, alignment: .trailing)
+                    }
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 4)
+                    .topRule()
+                    .help("Can't be paused by AI Pause. Watched processes are set in Settings.")
                 }
             }
         }

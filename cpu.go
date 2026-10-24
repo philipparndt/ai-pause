@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -33,10 +34,18 @@ type sampler struct {
 	prevAt  time.Time
 	stats   map[int]*sessionStats // by agent root pid
 	total   []sample              // all agent sessions together
+	procPct map[int]float64       // latest usage of every process
+	watched map[string]*watchStats
+}
+
+// watchStats tracks a group of non-agent processes matching one watch pattern.
+type watchStats struct {
+	history []sample
+	top     []procUsage
 }
 
 func newSampler() *sampler {
-	return &sampler{prevCPU: map[int]float64{}, stats: map[int]*sessionStats{}}
+	return &sampler{prevCPU: map[int]float64{}, stats: map[int]*sessionStats{}, watched: map[string]*watchStats{}}
 }
 
 func appendSample(h []sample, s sample) []sample {
@@ -60,7 +69,7 @@ func (sm *sampler) update(procs []proc, sessions []session, isPaused func(root i
 			procPct[p.pid] = (p.cpu - prev) / elapsed * 100
 		}
 	}
-	sm.prevCPU, sm.prevAt = cur, now
+	sm.prevCPU, sm.prevAt, sm.procPct = cur, now, procPct
 	if first {
 		return
 	}
@@ -102,6 +111,51 @@ func (sm *sampler) update(procs []proc, sessions []session, isPaused func(root i
 	for pid := range sm.stats {
 		if !alive[pid] {
 			delete(sm.stats, pid)
+		}
+	}
+}
+
+// updateWatched samples the processes matching the watch patterns that don't
+// belong to an agent session. Call after update.
+func (sm *sampler) updateWatched(procs []proc, sessions []session, patterns []string) {
+	if sm.prevAt.IsZero() || sm.procPct == nil {
+		return
+	}
+	inSession := map[int]bool{}
+	for _, sess := range sessions {
+		for _, pid := range sess.pids() {
+			inSession[pid] = true
+		}
+	}
+	seen := map[string]bool{}
+	for _, pat := range patterns {
+		if pat == "" {
+			continue
+		}
+		var matched []procUsage
+		var total float64
+		for _, p := range procs {
+			if !inSession[p.pid] && strings.Contains(strings.ToLower(p.name), strings.ToLower(pat)) {
+				matched = append(matched, procUsage{PID: p.pid, Name: p.name, Pct: sm.procPct[p.pid]})
+				total += sm.procPct[p.pid]
+			}
+		}
+		if len(matched) == 0 {
+			continue
+		}
+		seen[pat] = true
+		ws := sm.watched[pat]
+		if ws == nil {
+			ws = &watchStats{}
+			sm.watched[pat] = ws
+		}
+		slices.SortStableFunc(matched, func(a, b procUsage) int { return cmp.Compare(b.Pct, a.Pct) })
+		ws.top = matched[:min(6, len(matched))]
+		ws.history = appendSample(ws.history, sample{at: sm.prevAt, pct: total})
+	}
+	for pat := range sm.watched {
+		if !seen[pat] {
+			delete(sm.watched, pat)
 		}
 	}
 }

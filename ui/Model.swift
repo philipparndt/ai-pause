@@ -58,6 +58,26 @@ struct Session: Decodable, Identifiable {
     }
 }
 
+struct Hog: Decodable, Identifiable {
+    let name: String
+    let current: Double
+    let avg: Double
+    let history: [Sample]
+    let top: [ProcUsage]
+    var id: String { name }
+
+    enum CodingKeys: String, CodingKey { case name, current, avg, history, top }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        current = try c.decode(Double.self, forKey: .current)
+        avg = try c.decode(Double.self, forKey: .avg)
+        history = try c.list(.history)
+        top = try c.list(.top)
+    }
+}
+
 struct AutoConfig: Codable, Equatable {
     var enabled: Bool
     var mode: String
@@ -91,6 +111,8 @@ struct AutoConfig: Codable, Equatable {
 struct Config: Codable, Equatable {
     var mode: String
     var agentProcesses: [String]
+    var watchProcesses: [String]
+    var watchThreshold: Double
     var hookBlockTools: String
     var hookAllowCommands: String
     var auto: AutoConfig
@@ -98,6 +120,8 @@ struct Config: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case mode, auto
         case agentProcesses = "agent_processes"
+        case watchProcesses = "watch_processes"
+        case watchThreshold = "watch_threshold_percent"
         case hookBlockTools = "hook_block_tools"
         case hookAllowCommands = "hook_allow_commands"
     }
@@ -106,6 +130,8 @@ struct Config: Codable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         mode = try c.decode(String.self, forKey: .mode)
         agentProcesses = try c.list(.agentProcesses)
+        watchProcesses = try c.list(.watchProcesses)
+        watchThreshold = try c.decodeIfPresent(Double.self, forKey: .watchThreshold) ?? 30
         hookBlockTools = try c.decode(String.self, forKey: .hookBlockTools)
         hookAllowCommands = try c.decode(String.self, forKey: .hookAllowCommands)
         auto = try c.decode(AutoConfig.self, forKey: .auto)
@@ -143,12 +169,13 @@ struct Snapshot: Decodable {
     let suppressAuto: Bool
     let observed: Observation
     let sessions: [Session]
+    let hogs: [Hog]
     let total: [Sample]
     let hookInstalled: Bool
     let notice: Notice?
 
     enum CodingKeys: String, CodingKey {
-        case active, mode, reason, since, until, frozenCount, throttledCount, config, reasons, suppressAuto, observed, sessions, total, hookInstalled, notice
+        case active, mode, reason, since, until, frozenCount, throttledCount, config, reasons, suppressAuto, observed, sessions, hogs, total, hookInstalled, notice
     }
 
     init(from decoder: Decoder) throws {
@@ -165,6 +192,7 @@ struct Snapshot: Decodable {
         suppressAuto = try c.decode(Bool.self, forKey: .suppressAuto)
         observed = try c.decode(Observation.self, forKey: .observed)
         sessions = try c.list(.sessions)
+        hogs = try c.list(.hogs)
         total = try c.list(.total)
         hookInstalled = try c.decode(Bool.self, forKey: .hookInstalled)
         notice = try c.decodeIfPresent(Notice.self, forKey: .notice)

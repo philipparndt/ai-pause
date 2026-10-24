@@ -151,6 +151,7 @@ struct MiniToggle: View {
 struct BarChart: View {
     let samples: [Sample]
     var warn = false
+    var color: Color = Theme.blue
     var capacity = 40
 
     var body: some View {
@@ -173,7 +174,7 @@ struct BarChart: View {
             }
             for (i, s) in pts.enumerated() {
                 let h = max(1, s.p / top * (size.height - 2))
-                let color = warn ? Theme.orange : s.z ? Theme.dim : Theme.blue
+                let color = warn ? Theme.orange : s.z ? Theme.dim : self.color
                 ctx.fill(Path(CGRect(x: off + CGFloat(i) * step, y: size.height - h, width: max(1, step - 1), height: h)), with: .color(color))
             }
         }

@@ -77,6 +77,15 @@ struct SettingsView: View {
                 row("Agent process names", hint: "Everything they start belongs to their session.", top: true, first: true) {
                     TagEditor(values: bind(\.agentProcesses))
                 }
+                row("Other processes to watch", hint: "Shown in the popover while busy, e.g. Microsoft Defender (wdavdaemon). Never paused. Substring.", top: true) {
+                    TagEditor(values: bind(\.watchProcesses))
+                }
+                row("Show them above", hint: "Average CPU over 30 s; 100 % = one core.") {
+                    HStack(spacing: 6) {
+                        TextField("", value: bind(\.watchThreshold), format: .number).fieldStyle().frame(width: 90)
+                        Text("% CPU").foregroundStyle(Theme.muted)
+                    }
+                }
             }
             hook
         }

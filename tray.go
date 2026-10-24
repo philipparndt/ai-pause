@@ -186,6 +186,7 @@ func (t *tray) refresh(sample bool) {
 			t.sampler.update(procs, t.sessions, func(root int) bool {
 				return active || slices.Contains(s.FrozenSessions, root)
 			})
+			t.sampler.updateWatched(procs, t.sessions, cfg.WatchProcesses)
 		}
 	}
 	setMenuModel(t.model(cfg, s))

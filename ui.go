@@ -90,8 +90,18 @@ type dashSnapshot struct {
 	Observed       observation   `json:"observed"`
 	Sessions       []dashSession `json:"sessions"`
 	Total          []dashSample  `json:"total"`
+	Hogs           []dashHog     `json:"hogs"`
 	HookInstalled  bool          `json:"hookInstalled"`
 	Notice         *notice       `json:"notice,omitempty"`
+}
+
+// dashHog is a watched non-agent process group that currently uses a lot of CPU.
+type dashHog struct {
+	Name    string       `json:"name"`
+	Current float64      `json:"current"`
+	Avg     float64      `json:"avg"`
+	History []dashSample `json:"history"`
+	Top     []procUsage  `json:"top"`
 }
 
 type notice struct {
@@ -127,7 +137,19 @@ func (t *tray) snapshot(cfg Config, s State) dashSnapshot {
 		FrozenCount: len(s.Frozen), ThrottledCount: len(s.Throttled),
 		Config: cfg, Reasons: t.reasons, SuppressAuto: t.suppressAuto,
 		Observed: observe(), Total: toDashSamples(t.sampler.total),
-		HookInstalled: claudeHookInstalled(), Sessions: []dashSession{},
+		HookInstalled: claudeHookInstalled(), Sessions: []dashSession{}, Hogs: []dashHog{},
+	}
+	for _, pat := range cfg.WatchProcesses {
+		ws := t.sampler.watched[pat]
+		if ws == nil || len(ws.history) == 0 {
+			continue
+		}
+		cur := ws.history[len(ws.history)-1].pct
+		if recent := avg(ws.history, 10); recent >= cfg.WatchThreshold || cur >= cfg.WatchThreshold {
+			snap.Hogs = append(snap.Hogs, dashHog{
+				Name: pat, Current: cur, Avg: recent, History: toDashSamples(ws.history), Top: ws.top,
+			})
+		}
 	}
 	if snap.Reasons == nil {
 		snap.Reasons = []string{}
@@ -199,6 +221,9 @@ func validateConfig(cfg Config) error {
 		if _, err := regexp.Compile(re); err != nil {
 			return fmt.Errorf("invalid regex for %s: %v", name, err)
 		}
+	}
+	if cfg.WatchThreshold < 0 {
+		return fmt.Errorf("the CPU threshold for watched processes can't be negative")
 	}
 	if len(cfg.AgentProcesses) == 0 {
 		return fmt.Errorf("at least one agent process name is required")

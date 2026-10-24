@@ -32,6 +32,11 @@ type Config struct {
 	Mode string `json:"mode"`
 	// Process names treated as AI agents; they and all their descendants are affected.
 	AgentProcesses []string `json:"agent_processes"`
+	// Other processes shown in the popover while they use a lot of CPU (e.g. Microsoft Defender's
+	// wdavdaemon). They are only shown, never paused. Case-insensitive substring match.
+	WatchProcesses []string `json:"watch_processes"`
+	// Show a watched process once it averages this much CPU (100 = one core) over ~30s.
+	WatchThreshold float64 `json:"watch_threshold_percent"`
 	// Tools the Claude Code hook refuses while paused (regex on tool name).
 	HookBlockTools string `json:"hook_block_tools"`
 	// Bash commands that stay allowed while paused (regex per command segment).
@@ -43,6 +48,8 @@ func defaultConfig() Config {
 	return Config{
 		Mode:              ModeThrottle,
 		AgentProcesses:    []string{"claude", "codex", "gemini", "aider", "opencode", "cursor-agent", "amp", "goose", "copilot"},
+		WatchProcesses:    []string{"wdavdaemon"},
+		WatchThreshold:    30,
 		HookBlockTools:    `^(Bash|mcp__.*(browser|playwright|puppeteer|computer|chrome).*)$`,
 		HookAllowCommands: `^\s*(ai-pause|ls|cat|head|tail|pwd|echo|grep|rg|find|wc|which|file|stat|git (status|diff|log|show|branch|blame))\b`,
 		Auto: AutoConfig{
