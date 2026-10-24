@@ -1,5 +1,4 @@
 #import <Cocoa/Cocoa.h>
-#import <WebKit/WebKit.h>
 #include "_cgo_export.h"
 
 // A tiny native menu bar host. Go sends the whole menu as JSON (see menubar.go);
@@ -236,43 +235,10 @@ static NSString *structureOf(NSArray *items) {
 
 static Controller *controller;
 
-// Web views (popover and settings window) talk to Go through a script message
-// handler: no local HTTP server, so nothing else on the machine can call into them.
-@interface WebBridge : NSObject <WKScriptMessageHandler, NSWindowDelegate, NSPopoverDelegate>
-@property(copy) NSString *name;
-@end
-
-static NSPopover *popover;
-static WKWebView *popoverView, *settingsView;
-static NSWindow *settingsWindow;
-static WebBridge *popoverBridge, *settingsBridge;
-static NSString *popoverHTML;
-
-@implementation WebBridge
-- (void)userContentController:(WKUserContentController *)ucc didReceiveScriptMessage:(WKScriptMessage *)message {
-	if (![message.body isKindOfClass:NSString.class]) return;
-	NSString *body = message.body;
-	NSDictionary *msg = [NSJSONSerialization JSONObjectWithData:[body dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil];
-	if ([msg[@"action"] isEqualToString:@"resize"] && popover) {
-		NSScreen *screen = controller.statusItem.button.window.screen ?: NSScreen.mainScreen;
-		CGFloat h = MIN(MAX([msg[@"h"] doubleValue], 200), NSHeight(screen.visibleFrame) - 40);
-		if (fabs(popover.contentSize.height - h) > 0.5) popover.contentSize = NSMakeSize(380, h);
-		return;
-	}
-	webMessage((char *)body.UTF8String);
-}
-- (void)windowWillClose:(NSNotification *)notification { webVisibility((char *)self.name.UTF8String, 0); }
-- (void)popoverDidShow:(NSNotification *)notification { webVisibility((char *)self.name.UTF8String, 1); }
-- (void)popoverDidClose:(NSNotification *)notification { webVisibility((char *)self.name.UTF8String, 0); }
-@end
-
-static WKWebView *makeWebView(WebBridge *bridge, NSRect frame) {
-	WKWebViewConfiguration *cfg = [WKWebViewConfiguration new];
-	[cfg.userContentController addScriptMessageHandler:bridge name:@"aipause"];
-	WKWebView *view = [[WKWebView alloc] initWithFrame:frame configuration:cfg];
-	[view setValue:@NO forKey:@"drawsBackground"];
-	return view;
-}
+// The popover and settings window are SwiftUI (ui/*.swift).
+void aipause_ui_init(void);
+void aipause_ui_toggle_popover(void *button);
+void aipause_ui_close_popover(void);
 
 @implementation Controller (Popover)
 - (void)statusClicked:(NSStatusBarButton *)sender {
@@ -280,79 +246,14 @@ static WKWebView *makeWebView(WebBridge *bridge, NSRect frame) {
 	BOOL secondary = event.type == NSEventTypeRightMouseUp || (event.modifierFlags & NSEventModifierFlagControl);
 	if (secondary) {
 		// The classic menu stays available on right-click.
-		[popover performClose:nil];
+		aipause_ui_close_popover();
 		self.statusItem.menu = self.menu;
 		[sender performClick:nil];
 		return;
 	}
-	if (popover.shown) {
-		[popover performClose:nil];
-		return;
-	}
-	if (!popover) {
-		popoverBridge = [WebBridge new];
-		popoverBridge.name = @"popover";
-		popoverView = makeWebView(popoverBridge, NSMakeRect(0, 0, 380, 560));
-		[popoverView loadHTMLString:popoverHTML baseURL:nil];
-		NSViewController *vc = [NSViewController new];
-		vc.view = popoverView;
-		popover = [NSPopover new];
-		popover.contentViewController = vc;
-		popover.contentSize = NSMakeSize(380, 560);
-		popover.behavior = NSPopoverBehaviorTransient;
-		popover.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
-		popover.delegate = popoverBridge;
-	}
-	[NSApp activateIgnoringOtherApps:YES];
-	[popover showRelativeToRect:sender.bounds ofView:sender preferredEdge:NSRectEdgeMinY];
+	aipause_ui_toggle_popover((__bridge void *)sender);
 }
 @end
-
-void setPopoverHTML(char *html, int length) {
-	popoverHTML = [[NSString alloc] initWithBytes:html length:length encoding:NSUTF8StringEncoding];
-}
-
-void closePopover(void) {
-	dispatch_async(dispatch_get_main_queue(), ^{ [popover performClose:nil]; });
-}
-
-void openSettings(char *html, int length) {
-	NSString *page = [[NSString alloc] initWithBytes:html length:length encoding:NSUTF8StringEncoding];
-	dispatch_async(dispatch_get_main_queue(), ^{
-		[popover performClose:nil];
-		if (!settingsWindow) {
-			settingsBridge = [WebBridge new];
-			settingsBridge.name = @"settings";
-			settingsWindow = [[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 640, 640)
-				styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable
-				backing:NSBackingStoreBuffered defer:NO];
-			settingsWindow.title = @"AI Pause Settings";
-			settingsWindow.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
-			settingsWindow.backgroundColor = [NSColor colorWithSRGBRed:0.078 green:0.078 blue:0.086 alpha:1];
-			settingsWindow.releasedWhenClosed = NO;
-			settingsWindow.delegate = settingsBridge;
-			settingsWindow.minSize = NSMakeSize(520, 400);
-			settingsWindow.frameAutosaveName = @"settings";
-			settingsView = makeWebView(settingsBridge, settingsWindow.contentView.bounds);
-			settingsView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
-			settingsWindow.contentView = settingsView;
-			[settingsView loadHTMLString:page baseURL:nil];
-			if (![settingsWindow setFrameUsingName:@"settings"]) [settingsWindow center];
-		}
-		[NSApp activateIgnoringOtherApps:YES];
-		[settingsWindow makeKeyAndOrderFront:nil];
-		webVisibility("settings", 1);
-	});
-}
-
-void pushWeb(char *json, int length) {
-	NSString *data = [[NSString alloc] initWithBytes:json length:length encoding:NSUTF8StringEncoding];
-	dispatch_async(dispatch_get_main_queue(), ^{
-		NSString *js = [NSString stringWithFormat:@"window.aipauseUpdate && window.aipauseUpdate(%@)", data];
-		if (popover.shown) [popoverView evaluateJavaScript:js completionHandler:nil];
-		if (settingsWindow.visible) [settingsView evaluateJavaScript:js completionHandler:nil];
-	});
-}
 
 // Accessory apps have no visible menu bar, but key equivalents (copy/paste in
 // the settings form, ⌘W) still go through the main menu.
@@ -388,6 +289,7 @@ void runApp(void) {
 		button.target = controller;
 		button.action = @selector(statusClicked:);
 		[button sendActionOn:NSEventMaskLeftMouseUp | NSEventMaskRightMouseUp];
+		aipause_ui_init();
 		menuReady();
 		[NSApp run];
 	}

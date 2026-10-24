@@ -34,21 +34,20 @@ func runTray() {
 		releaseProcesses()
 		os.Exit(0)
 	}()
-	t := &tray{sampler: newSampler(), cwds: map[int]string{}, webViews: map[string]bool{}}
-	onWebMessage = t.handleWebMessage
-	onWebVisibility = func(view string, visible bool) {
+	t := &tray{sampler: newSampler(), cwds: map[int]string{}, views: map[string]bool{}}
+	onUIMessage = t.handleUIMessage
+	onUIVisibility = func(view string, visible bool) {
 		t.mu.Lock()
 		if visible {
-			t.webViews[view] = true
+			t.views[view] = true
 		} else {
-			delete(t.webViews, view)
+			delete(t.views, view)
 		}
 		t.mu.Unlock()
 		if visible {
 			t.refreshDashboard(nil)
 		}
 	}
-	initWebViews()
 	runMenuBar(t.run, t.click, t.menuOpened, t.menuClosed)
 }
 
@@ -74,8 +73,8 @@ type tray struct {
 	registry     map[int]claudeSession
 	cwds         map[int]string
 	menuOpen     bool
-	webViews     map[string]bool // visible web views
-	order        []int // session order shown while the menu is open
+	views        map[string]bool // visible popover / settings window
+	order        []int           // session order shown while the menu is open
 }
 
 func (t *tray) menuOpened() {
@@ -190,8 +189,8 @@ func (t *tray) refresh(sample bool) {
 		}
 	}
 	setMenuModel(t.model(cfg, s))
-	if len(t.webViews) > 0 {
-		pushToWeb(t.snapshot(cfg, s))
+	if len(t.views) > 0 {
+		pushToUI(t.snapshot(cfg, s))
 	}
 }
 

@@ -1,10 +1,9 @@
 package main
 
 /*
-void openSettings(char *html, int length);
-void setPopoverHTML(char *html, int length);
-void closePopover(void);
-void pushWeb(char *json, int length);
+void aipause_ui_push(char *json, int length);
+void aipause_ui_close_popover(void);
+void aipause_ui_show_settings(void);
 */
 import "C"
 
@@ -17,48 +16,40 @@ import (
 	"strings"
 	"time"
 	"unsafe"
-
-	_ "embed"
 )
 
-//go:embed web/settings.html
-var settingsHTML []byte
+// The popover and settings window are SwiftUI views (ui/*.swift). Go sends
+// them snapshots as JSON and receives actions as JSON messages.
 
-//go:embed web/popover.html
-var popoverHTML []byte
+// uiLibHash is set by the Makefile so Go relinks when the Swift library changes.
+var uiLibHash string
 
-var onWebMessage func(msg string)
-var onWebVisibility func(view string, visible bool)
+var onUIMessage func(msg string)
+var onUIVisibility func(view string, visible bool)
 
-func initWebViews() {
-	C.setPopoverHTML((*C.char)(unsafe.Pointer(&popoverHTML[0])), C.int(len(popoverHTML)))
-}
+func showSettings() { C.aipause_ui_show_settings() }
 
-func showSettings() {
-	C.openSettings((*C.char)(unsafe.Pointer(&settingsHTML[0])), C.int(len(settingsHTML)))
-}
+func closePopover() { C.aipause_ui_close_popover() }
 
-func closePopover() { C.closePopover() }
-
-// pushToWeb sends a snapshot to every visible web view (popover, settings).
-func pushToWeb(v any) {
+// pushToUI sends a snapshot to the SwiftUI views.
+func pushToUI(v any) {
 	data, err := json.Marshal(v)
 	if err != nil {
 		return
 	}
-	C.pushWeb((*C.char)(unsafe.Pointer(&data[0])), C.int(len(data)))
+	C.aipause_ui_push((*C.char)(unsafe.Pointer(&data[0])), C.int(len(data)))
 }
 
-//export webMessage
-func webMessage(msg *C.char) {
+//export uiMessage
+func uiMessage(msg *C.char) {
 	s := C.GoString(msg)
-	go onWebMessage(s)
+	go onUIMessage(s)
 }
 
-//export webVisibility
-func webVisibility(view *C.char, visible C.int) {
+//export uiVisibility
+func uiVisibility(view *C.char, visible C.int) {
 	name := C.GoString(view)
-	go onWebVisibility(name, visible != 0)
+	go onUIVisibility(name, visible != 0)
 }
 
 type dashSample struct {
@@ -162,8 +153,8 @@ func (t *tray) snapshot(cfg Config, s State) dashSnapshot {
 	return snap
 }
 
-// handleWebMessage processes actions sent by the dashboard page.
-func (t *tray) handleWebMessage(raw string) {
+// handleUIMessage processes actions sent by the popover and settings window.
+func (t *tray) handleUIMessage(raw string) {
 	var msg struct {
 		Action string          `json:"action"`
 		ID     string          `json:"id"`
@@ -218,12 +209,12 @@ func validateConfig(cfg Config) error {
 func (t *tray) refreshDashboard(n *notice) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if len(t.webViews) == 0 {
+	if len(t.views) == 0 {
 		return
 	}
 	snap := t.snapshot(loadConfig(), loadState())
 	snap.Notice = n
-	pushToWeb(snap)
+	pushToUI(snap)
 }
 
 func cmpOr(a, b string) string {
