@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AI Pause Settings</title>
+<style>
+:root {
+  --bg: #141416; --tile: #1e1e21; --field: #26262a; --line: rgba(255,255,255,.07); --line-2: rgba(255,255,255,.14);
+  --text: #e8e8ea; --muted: #8e8e93; --muted-2: #b0b0b5;
+  --blue: #4cc2ff; --orange: #ffb340; --green: #7ee29a; --red: #ff6961;
+  --mono: "SF Mono", ui-monospace, Menlo, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); }
+body {
+  color: var(--text); font: 12px/1.45 -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased; -webkit-user-select: none; user-select: none; cursor: default;
+  padding: 14px 14px 64px;
+}
+input { -webkit-user-select: text; user-select: text; }
+button { font: inherit; cursor: default; }
+.cap { font-size: 10px; letter-spacing: .1em; color: var(--muted); font-weight: 600; }
+.wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.tile { background: var(--tile); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.tile > .cap { display: block; margin-bottom: 4px; }
+.row { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 12px; padding: 8px 0; border-top: 1px solid rgba(255,255,255,.05); align-items: center; }
+.tile > .cap + .row { border-top: 0; }
+.row.top { align-items: start; }
+.row label { font-weight: 500; }
+.hint { display: block; color: var(--muted); font-size: 10px; font-weight: 400; margin-top: 1px; }
+.seg { display: flex; gap: 4px; }
+.btn {
+  border: 1px solid var(--line-2); background: var(--field); color: var(--text);
+  font-size: 11px; padding: 4px 10px; border-radius: 6px;
+}
+.btn:hover { background: #2e2e33; }
+.seg .btn { flex: 1; }
+.btn.on { background: #173a52; border-color: #2f6f99; color: #8ad6ff; font-weight: 600; }
+.btn.primary { background: #173a52; border-color: #2f6f99; color: #8ad6ff; font-weight: 600; }
+.btn.small { padding: 2px 8px; font-size: 10px; }
+input[type=text], input[type=number] {
+  font: inherit; color: var(--text); background: var(--field); border: 1px solid var(--line-2);
+  border-radius: 6px; padding: 4px 8px; width: 100%;
+}
+input.mono { font-family: var(--mono); font-size: 11px; }
+input:focus { outline: none; border-color: #2f6f99; box-shadow: 0 0 0 2px rgba(76,194,255,.2); }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--field); border: 1px solid var(--line-2); border-radius: 6px; }
+.tags:focus-within { border-color: #2f6f99; }
+.tag { display: inline-flex; align-items: center; gap: 2px; background: #33333a; border-radius: 4px; padding: 1px 2px 1px 6px; font-family: var(--mono); font-size: 11px; }
+.tag button { border: 0; background: none; color: var(--muted); font-size: 12px; line-height: 1; padding: 0 3px; }
+.tag button:hover { color: var(--red); }
+.tags input { flex: 1; min-width: 90px; border: 0; background: none; padding: 1px 4px; font-family: var(--mono); font-size: 11px; color: var(--text); }
+.tags input:focus { outline: none; box-shadow: none; }
+.toggle { width: 28px; height: 16px; border-radius: 99px; background: #48484a; position: relative; border: 0; padding: 0; }
+.toggle::after { content: ""; position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.toggle.on { background: #30d158; }
+.toggle.on::after { transform: translateX(12px); }
+.detected { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.detected ul { list-style: none; margin: 4px 0 0; padding: 0; }
+.detected li { display: flex; align-items: center; gap: 6px; padding: 4px 0; border-top: 1px solid rgba(255,255,255,.05); font-family: var(--mono); font-size: 11px; }
+.detected li:first-child { border-top: 0; }
+.detected li span:first-child { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.matrix { width: 100%; border-collapse: collapse; margin-top: 4px; }
+.matrix th, .matrix td { padding: 5px 8px; border-top: 1px solid rgba(255,255,255,.05); text-align: center; }
+.matrix th:first-child, .matrix td:first-child { text-align: left; padding-left: 0; }
+.matrix thead th { border-top: 0; font-weight: 600; vertical-align: bottom; }
+.matrix td:first-child { color: var(--muted-2); }
+.matrix .yes { color: var(--green); }
+.matrix .no { color: #5a5a5f; }
+.matrix .part { color: var(--orange); }
+.matrix .sel { background: rgba(76,194,255,.07); }
+.matrix .badges { display: block; height: 14px; }
+.matrix .badge { font-size: 9px; letter-spacing: .06em; font-weight: 700; color: #8ad6ff; margin: 0 2px; }
+.chip { font-size: 10px; font-weight: 600; letter-spacing: .04em; }
+.savebar {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 8px; align-items: center; justify-content: flex-end;
+  padding: 10px 14px; background: rgba(20,20,22,.92); backdrop-filter: blur(16px); border-top: 1px solid var(--line);
+  transform: translateY(100%); transition: transform .2s;
+}
+.savebar.show { transform: none; }
+.toast {
+  position: fixed; left: 50%; bottom: 58px; transform: translate(-50%, 16px); opacity: 0; transition: .2s; pointer-events: none;
+  background: #26262a; border: 1px solid var(--line-2); padding: 6px 12px; border-radius: 8px; font-weight: 500;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.err { border-color: var(--red); color: var(--red); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="tile">
+    <span class="cap">PAUSING</span>
+    <div class="row">
+      <label>Default mode<span class="hint">Used when you pause manually.</span></label>
+      <div class="seg" data-mode="mode"></div>
+    </div>
+    <table class="matrix" id="modeMatrix"></table>
+  </div>
+
+  <div class="tile">
+    <span class="cap">AUTO-PAUSE</span>
+    <div class="row">
+      <label>Enabled<span class="hint">Pause during calls, presentations and games.</span></label>
+      <div><button class="toggle" id="cfgAutoEnabled" aria-label="Auto-pause enabled"></button></div>
+    </div>
+    <div class="row">
+      <label>Mode while auto-paused</label>
+      <div class="seg" data-mode="auto.mode"></div>
+    </div>
+    <div class="row top">
+      <label>Apps keeping the display awake<span class="hint">Teams/Zoom during calls, Keynote while presenting. Substring.</span></label>
+      <div class="tags" data-tags="displaySleepApps"></div>
+    </div>
+    <div class="row top">
+      <label>Running apps<span class="hint">e.g. games. Exact process name.</span></label>
+      <div class="tags" data-tags="runningApps"></div>
+    </div>
+    <div class="row">
+      <label>Microphone in use<span class="hint">Any app recording audio counts as a call.</span></label>
+      <div><button class="toggle" id="cfgMic" aria-label="Microphone trigger"></button></div>
+    </div>
+    <div class="row top">
+      <label>Ignore microphone use by<span class="hint">Dictation, Siri, … Substring.</span></label>
+      <div class="tags" data-tags="microphoneIgnore"></div>
+    </div>
+    <div class="row">
+      <label>Resume after<span class="hint">Seconds without any trigger.</span></label>
+      <input type="number" id="cfgDelay" min="0" step="5" style="width: 90px">
+    </div>
+  </div>
+
+  <div class="tile">
+    <span class="cap">DETECTED RIGHT NOW</span>
+    <div class="detected">
+      <div><span class="hint">Keeping the display awake</span><ul id="obsDisplay"></ul></div>
+      <div><span class="hint">Using the microphone</span><ul id="obsMic"></ul></div>
+    </div>
+  </div>
+
+  <div class="tile">
+    <span class="cap">AGENTS</span>
+    <div class="row top">
+      <label>Agent process names<span class="hint">Everything they start belongs to their session.</span></label>
+      <div class="tags" data-tags="agentProcesses"></div>
+    </div>
+  </div>
+
+  <div class="tile">
+    <span class="cap">CLAUDE CODE HOOK</span>
+    <div class="row">
+      <label>Status<span class="hint">Refuses heavy tools while paused and tells the agent why.</span></label>
+      <div id="hookStatus"></div>
+    </div>
+    <div class="row">
+      <label>Blocked tools<span class="hint">Regex on the tool name.</span></label>
+      <input type="text" class="mono" id="cfgBlock" spellcheck="false">
+    </div>
+    <div class="row">
+      <label>Still allowed commands<span class="hint">Regex per shell command segment.</span></label>
+      <input type="text" class="mono" id="cfgAllow" spellcheck="false">
+    </div>
+  </div>
+</div>
+
+<div class="savebar" id="savebar">
+  <span style="color: var(--muted); margin-right: auto">Unsaved changes</span>
+  <button class="btn" id="revert">Revert</button>
+  <button class="btn primary" id="save">Save</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const MODES = { polite: "Polite", throttle: "Throttle", freeze: "Freeze" };
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const post = (msg) => window.webkit?.messageHandlers?.aipause?.postMessage(JSON.stringify(msg));
+// Same substring rule the app uses for matching.
+const covered = (list, name) => (list || []).some((x) => name.toLowerCase().includes(x.toLowerCase()));
+
+const TAG_FIELDS = {
+  agentProcesses: [(c) => c.agent_processes, (c, v) => (c.agent_processes = v)],
+  displaySleepApps: [(c) => c.auto.display_sleep_apps, (c, v) => (c.auto.display_sleep_apps = v)],
+  runningApps: [(c) => c.auto.running_apps, (c, v) => (c.auto.running_apps = v)],
+  microphoneIgnore: [(c) => c.auto.microphone_ignore, (c, v) => (c.auto.microphone_ignore = v)],
+};
+const MODE_FIELDS = {
+  mode: [(c) => c.mode, (c, v) => (c.mode = v)],
+  "auto.mode": [(c) => c.auto.mode, (c, v) => (c.auto.mode = v)],
+};
+
+// What each mode does; [polite, throttle, freeze]. "yes" | "no" | "part" + label.
+const MATRIX = [
+  ["Claude agents told to hold off (hook)", ["yes", "✓"], ["yes", "✓"], ["yes", "✓"]],
+  ["Agent sessions stay responsive", ["yes", "✓"], ["yes", "✓"], ["yes", "✓"]],
+  ["Works for non-Claude agents", ["no", "–"], ["yes", "✓"], ["yes", "✓"]],
+  ["Lower CPU and I/O priority", ["no", "–"], ["yes", "✓"], ["yes", "✓"]],
+  ["Running tests and builds", ["no", "keep going"], ["part", "slowed"], ["yes", "stopped"]],
+  ["Tool processes suspended", ["no", "–"], ["no", "–"], ["yes", "✓"]],
+  ["Side effects", ["yes", "none"], ["yes", "none"], ["part", "timeouts possible"]],
+];
+
+function renderMatrix(c) {
+  const keys = Object.keys(MODES);
+  const head = keys.map((k) => {
+    const b = (k === c.mode ? `<span class="badge">DEFAULT</span>` : "") + (k === c.auto.mode ? `<span class="badge">AUTO</span>` : "");
+    return `<th class="${k === c.mode || k === c.auto.mode ? "sel" : ""}"><span class="badges">${b}</span>${MODES[k]}</th>`;
+  }).join("");
+  const body = MATRIX.map(([label, ...cells]) => `<tr><td>${label}</td>${cells.map(([cls, t], i) =>
+    `<td class="${cls}${keys[i] === c.mode || keys[i] === c.auto.mode ? " sel" : ""}">${t}</td>`).join("")}</tr>`).join("");
+  $("modeMatrix").innerHTML = `<thead><tr><th></th>${head}</tr></thead><tbody>${body}</tbody>`;
+}
+
+let snap = null, draft = null, dirty = false;
+
+function changed() { dirty = true; $("savebar").classList.add("show"); renderForm(); }
+
+function renderForm() {
+  const c = draft;
+  document.querySelectorAll("[data-mode]").forEach((el) => {
+    const [get, set] = MODE_FIELDS[el.dataset.mode];
+    el.innerHTML = Object.entries(MODES).map(([k, t]) => `<button class="btn ${get(c) === k ? "on" : ""}" data-v="${k}">${t}</button>`).join("");
+    el.onclick = (e) => { const b = e.target.closest("[data-v]"); if (b) { set(c, b.dataset.v); changed(); } };
+  });
+  renderMatrix(c);
+  $("cfgAutoEnabled").classList.toggle("on", c.auto.enabled);
+  $("cfgMic").classList.toggle("on", c.auto.microphone_in_use);
+  $("cfgDelay").value = c.auto.resume_delay_seconds;
+  $("cfgBlock").value = c.hook_block_tools;
+  $("cfgAllow").value = c.hook_allow_commands;
+  document.querySelectorAll("[data-tags]").forEach(renderTags);
+  renderDetected();
+}
+
+function renderTags(el) {
+  const [get, set] = TAG_FIELDS[el.dataset.tags];
+  const values = [...(get(draft) || [])];
+  el.innerHTML = values.map((v, i) => `<span class="tag">${esc(v)}<button data-rm="${i}" aria-label="Remove ${esc(v)}">×</button></span>`).join("") +
+    `<input type="text" placeholder="add…" spellcheck="false" aria-label="Add">`;
+  el.querySelectorAll("[data-rm]").forEach((b) => b.onclick = () => { values.splice(+b.dataset.rm, 1); set(draft, values); changed(); });
+  const input = el.querySelector("input");
+  input.onkeydown = (e) => {
+    if ((e.key === "Enter" || e.key === ",") && input.value.trim()) {
+      e.preventDefault();
+      values.push(input.value.trim()); set(draft, values); changed();
+      el.querySelector("input").focus();
+    } else if (e.key === "Backspace" && !input.value && values.length) {
+      values.pop(); set(draft, values); changed();
+      el.querySelector("input").focus();
+    }
+  };
+}
+
+function addTag(field, value) {
+  const [get, set] = TAG_FIELDS[field];
+  const values = [...(get(draft) || [])];
+  if (!values.includes(value)) { values.push(value); set(draft, values); changed(); }
+}
+
+function renderDetected() {
+  if (!snap || !draft) return;
+  const o = snap.observed;
+  const li = (name, right) => `<li><span>${esc(name)}</span>${right}</li>`;
+  $("obsDisplay").innerHTML = o.displaySleep.length
+    ? o.displaySleep.map((n) => li(n, covered(draft.auto.display_sleep_apps, n)
+        ? `<span class="chip" style="color: var(--green)">WATCHED</span>`
+        : `<button class="btn small" data-add="displaySleepApps" data-v="${esc(n)}">Add</button>`)).join("")
+    : `<li style="color: var(--muted)">nothing</li>`;
+  $("obsMic").innerHTML = o.microphone.length
+    ? o.microphone.map((n) => li(n, covered(draft.auto.microphone_ignore, n)
+        ? `<span class="chip" style="color: var(--muted)">IGNORED</span>`
+        : `<button class="btn small" data-add="microphoneIgnore" data-v="${esc(n)}">Ignore</button>`)).join("")
+    : `<li style="color: var(--muted)">nothing</li>`;
+  document.querySelectorAll("[data-add]").forEach((b) => b.onclick = () => addTag(b.dataset.add, b.dataset.v));
+  $("hookStatus").innerHTML = snap.hookInstalled
+    ? `<span class="chip" style="color: var(--green)">INSTALLED</span> <span class="hint" style="display: inline">in ~/.claude/settings.json</span>`
+    : `<span class="chip" style="color: var(--orange)">NOT INSTALLED</span> <button class="btn small primary" id="installHook">Install</button>
+       <span class="hint">Adds a PreToolUse hook to ~/.claude/settings.json (backup first).</span>`;
+  const ih = $("installHook");
+  if (ih) ih.onclick = () => post({ action: "installHook" });
+}
+
+$("cfgAutoEnabled").onclick = () => { draft.auto.enabled = !draft.auto.enabled; changed(); };
+$("cfgMic").onclick = () => { draft.auto.microphone_in_use = !draft.auto.microphone_in_use; changed(); };
+$("cfgDelay").oninput = (e) => { draft.auto.resume_delay_seconds = +e.target.value || 0; dirty = true; $("savebar").classList.add("show"); };
+$("cfgBlock").oninput = (e) => { draft.hook_block_tools = e.target.value; dirty = true; $("savebar").classList.add("show"); };
+$("cfgAllow").oninput = (e) => { draft.hook_allow_commands = e.target.value; dirty = true; $("savebar").classList.add("show"); };
+$("save").onclick = () => post({ action: "saveConfig", config: draft });
+$("revert").onclick = () => { draft = structuredClone(snap.config); dirty = false; $("savebar").classList.remove("show"); renderForm(); };
+
+let toastTimer;
+function toast(n) {
+  const t = $("toast");
+  t.textContent = n.message;
+  t.classList.toggle("err", !n.ok);
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), n.ok ? 2500 : 6000);
+}
+
+window.aipauseUpdate = (s) => {
+  snap = s;
+  if (s.notice) {
+    toast(s.notice);
+    if (s.notice.ok && s.notice.message.startsWith("Settings")) { dirty = false; $("savebar").classList.remove("show"); }
+  }
+  // Don't replace the form under the user's cursor.
+  const editing = document.activeElement?.matches?.("input");
+  if (!dirty && !editing) { draft = structuredClone(s.config); renderForm(); }
+  else renderDetected();
+};
+post({ action: "ready" });
+</script>
+</body>
+</html>
