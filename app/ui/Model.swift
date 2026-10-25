@@ -83,6 +83,7 @@ struct AutoConfig: Codable, Equatable {
     var mode: String
     var displaySleepApps: [String]
     var runningApps: [String]
+    var games: Bool
     var microphoneInUse: Bool
     var microphoneIgnore: [String]
     var resumeDelaySeconds: Int
@@ -91,6 +92,7 @@ struct AutoConfig: Codable, Equatable {
         case enabled, mode
         case displaySleepApps = "display_sleep_apps"
         case runningApps = "running_apps"
+        case games
         case microphoneInUse = "microphone_in_use"
         case microphoneIgnore = "microphone_ignore"
         case resumeDelaySeconds = "resume_delay_seconds"
@@ -102,6 +104,7 @@ struct AutoConfig: Codable, Equatable {
         mode = try c.decode(String.self, forKey: .mode)
         displaySleepApps = try c.list(.displaySleepApps)
         runningApps = try c.list(.runningApps)
+        games = try c.decodeIfPresent(Bool.self, forKey: .games) ?? true
         microphoneInUse = try c.decode(Bool.self, forKey: .microphoneInUse)
         microphoneIgnore = try c.list(.microphoneIgnore)
         resumeDelaySeconds = try c.decode(Int.self, forKey: .resumeDelaySeconds)

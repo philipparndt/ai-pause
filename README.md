@@ -69,3 +69,7 @@ make release-publish VERSION=x.y.z   # signed, notarized release + Homebrew tap
 ```
 
 Go handles detection, sampling and pausing (`app/`), and the views are SwiftUI (`app/ui/`).
+
+## License
+
+[MIT](LICENSE)

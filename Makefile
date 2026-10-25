@@ -30,6 +30,8 @@ LOCAL_IDENTITY ?= $(or $(shell security find-identity -v -p codesigning 2>/dev/n
 goarch = $(if $(filter x86_64,$(1)),amd64,arm64)
 
 .PHONY: all build app install screenshots release release-publish tap sign-check clean
+# Keep the per-architecture builds, so unchanged parts aren't rebuilt.
+.SECONDARY:
 
 all: build
 

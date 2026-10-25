@@ -65,7 +65,9 @@ func parseCPUTime(s string) float64 {
 	return total
 }
 
-func agentSessions(procs []proc, agentNames []string) []session {
+// agentSessions groups processes by the agent that started them. Processes in
+// skip (and everything they started) are left out of every session.
+func agentSessions(procs []proc, agentNames []string, skip map[int]bool) []session {
 	children := map[int][]proc{}
 	byPid := map[int]proc{}
 	for _, p := range procs {
@@ -93,7 +95,7 @@ func agentSessions(procs []proc, agentNames []string) []session {
 		var walk func(pid int)
 		walk = func(pid int) {
 			for _, c := range children[pid] {
-				if c.pid == self || c.name == "ai-pause" {
+				if c.pid == self || c.name == "ai-pause" || skip[c.pid] {
 					continue
 				}
 				s.desc = append(s.desc, c)
@@ -126,8 +128,21 @@ func enforce(s State, cfg Config) State {
 	throttleAll := s.Paused && (s.Mode == ModeThrottle || s.Mode == ModeFreeze)
 
 	var sessions []session
+	// Processes that triggered the pause (a game, a call) and the processes that
+	// started them keep running at full speed.
+	keep := map[int]bool{}
 	if procs, err := listProcs(); err == nil && (freezeAll || throttleAll || len(s.FrozenSessions) > 0) {
-		sessions = agentSessions(procs, cfg.AgentProcesses)
+		triggers := triggerPids(cfg.Auto)
+		sessions = agentSessions(procs, cfg.AgentProcesses, triggers)
+		parent := map[int]int{}
+		for _, p := range procs {
+			parent[p.pid] = p.ppid
+		}
+		for pid := range triggers {
+			for p := parent[pid]; p > 1 && !keep[p]; p = parent[p] {
+				keep[p] = true
+			}
+		}
 	}
 
 	// Agent roots themselves are never stopped: they are usually the foreground
@@ -141,14 +156,14 @@ func enforce(s State, cfg Config) State {
 		}
 		if freezeAll || sessionFrozen {
 			for _, p := range sess.desc {
-				if syscall.Kill(p.pid, syscall.SIGSTOP) == nil {
+				if !keep[p.pid] && syscall.Kill(p.pid, syscall.SIGSTOP) == nil {
 					frozen = append(frozen, p.pid)
 				}
 			}
 		}
 		if throttleAll {
 			for _, pid := range sess.pids() {
-				if setBackground(pid, true) == nil {
+				if !keep[pid] && setBackground(pid, true) == nil {
 					throttled = append(throttled, pid)
 				}
 			}

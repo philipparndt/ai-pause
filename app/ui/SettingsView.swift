@@ -108,6 +108,9 @@ struct SettingsView: View {
                 TagEditor(values: bind(\.auto.displaySleepApps))
             }
             row("Running apps", hint: "e.g. games. Exact process name.", top: true) { TagEditor(values: bind(\.auto.runningApps)) }
+            row("Games", hint: "Apps that keep the Mac awake as a game. Never paused, even when an agent started them.") {
+                MiniToggle(on: draft!.auto.games, label: "Game trigger") { bind(\.auto.games).wrappedValue.toggle() }
+            }
             row("Microphone in use", hint: "Any app recording audio counts as a call.") {
                 MiniToggle(on: draft!.auto.microphoneInUse, label: "Microphone trigger") { bind(\.auto.microphoneInUse).wrappedValue.toggle() }
             }

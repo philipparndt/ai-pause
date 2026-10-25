@@ -93,7 +93,7 @@ func main() {
 		for range 2 {
 			procs, err := listProcs()
 			check(err)
-			sessions = agentSessions(procs, cfg.AgentProcesses)
+			sessions = agentSessions(procs, cfg.AgentProcesses, triggerPids(cfg.Auto))
 			sm.update(procs, sessions, func(int) bool { return false })
 			time.Sleep(3 * time.Second)
 		}

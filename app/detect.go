@@ -50,27 +50,55 @@ import (
 	"bufio"
 	"bytes"
 	"cmp"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
-var assertionLine = regexp.MustCompile(`pid (\d+)\((.+?)\): \[[^\]]*\] \S+ (\w+) named:`)
+var assertionLine = regexp.MustCompile(`pid (\d+)\((.+?)\): \[[^\]]*\] \S+ (\w+) named: "(.*)"`)
 
-// displaySleepHolders returns the names of processes preventing display sleep.
-func displaySleepHolders() []string {
+type assertion struct {
+	pid        int
+	owner      string // process name
+	kind, name string // e.g. PreventUserIdleDisplaySleep, "game"
+}
+
+// powerAssertions lists the power assertions processes hold (pmset -g assertions).
+func powerAssertions() []assertion {
 	out, err := exec.Command("pmset", "-g", "assertions").Output()
 	if err != nil {
 		return nil
 	}
-	var names []string
+	var list []assertion
 	sc := bufio.NewScanner(bytes.NewReader(out))
 	for sc.Scan() {
-		m := assertionLine.FindStringSubmatch(sc.Text())
-		if m != nil && (m[3] == "PreventUserIdleDisplaySleep" || m[3] == "NoDisplaySleepAssertion") {
-			names = append(names, m[2])
+		if m := assertionLine.FindStringSubmatch(sc.Text()); m != nil {
+			pid, _ := strconv.Atoi(m[1])
+			list = append(list, assertion{pid: pid, owner: m[2], kind: m[3], name: m[4]})
+		}
+	}
+	return list
+}
+
+func preventsDisplaySleep(a assertion) bool {
+	return a.kind == "PreventUserIdleDisplaySleep" || a.kind == "NoDisplaySleepAssertion"
+}
+
+// isGame reports whether an assertion says it's a game keeping the Mac awake.
+func isGame(a assertion) bool { return strings.Contains(strings.ToLower(a.name), "game") }
+
+// displaySleepHolders returns the names of processes preventing display sleep.
+func displaySleepHolders() []string {
+	var names []string
+	for _, a := range powerAssertions() {
+		if preventsDisplaySleep(a) {
+			names = append(names, a.owner)
 		}
 	}
 	return names
@@ -95,44 +123,80 @@ func containsFold(list []string, name string, substring bool) bool {
 	})
 }
 
+// trigger is a reason for an automatic pause and the process causing it.
+type trigger struct {
+	reason string
+	pid    int
+}
+
+// The tray, enforce and the CLI all ask within the same tick; pmset and
+// CoreAudio are only queried once per second.
+var detectCache struct {
+	sync.Mutex
+	at       time.Time
+	cfg      string
+	triggers []trigger
+}
+
+// detect returns what auto-detection currently sees.
+func detect(cfg AutoConfig) []trigger {
+	key, _ := json.Marshal(cfg)
+	detectCache.Lock()
+	defer detectCache.Unlock()
+	if time.Since(detectCache.at) < time.Second && detectCache.cfg == string(key) {
+		return detectCache.triggers
+	}
+
+	var triggers []trigger
+	add := func(reason string, pid int) { triggers = append(triggers, trigger{reason, pid}) }
+	for _, a := range powerAssertions() {
+		switch {
+		case preventsDisplaySleep(a) && containsFold(cfg.DisplaySleepApps, a.owner, true):
+			add(a.owner+" active", a.pid)
+		case cfg.Games && isGame(a):
+			add(a.owner+" (game) running", a.pid)
+		}
+	}
+	if procs, err := listProcs(); err == nil {
+		names := map[int]string{}
+		for _, p := range procs {
+			names[p.pid] = p.name
+			if containsFold(cfg.RunningApps, p.name, false) {
+				add(p.name+" running", p.pid)
+			}
+		}
+		if cfg.MicrophoneInUse {
+			for _, pid := range micUserPids() {
+				if name := names[pid]; name != "" && !containsFold(cfg.MicrophoneIgnore, name, true) {
+					add("microphone used by "+name, pid)
+				}
+			}
+		}
+	}
+	detectCache.at, detectCache.cfg, detectCache.triggers = time.Now(), string(key), triggers
+	return triggers
+}
+
 // detectTriggers returns human-readable reasons why an automatic pause should be active.
 func detectTriggers(cfg AutoConfig) []string {
 	var reasons []string
-	add := func(r string) {
-		if !slices.Contains(reasons, r) {
-			reasons = append(reasons, r)
-		}
-	}
-	for _, name := range displaySleepHolders() {
-		if containsFold(cfg.DisplaySleepApps, name, true) {
-			add(name + " active")
-		}
-	}
-
-	if len(cfg.RunningApps) == 0 && !cfg.MicrophoneInUse {
-		return reasons
-	}
-	procs, err := listProcs()
-	if err != nil {
-		return reasons
-	}
-	names := map[int]string{}
-	for _, p := range procs {
-		names[p.pid] = p.name
-		if containsFold(cfg.RunningApps, p.name, false) {
-			add(p.name + " running")
-		}
-	}
-	if cfg.MicrophoneInUse {
-		for _, pid := range micUserPids() {
-			name := names[pid]
-			if name == "" || containsFold(cfg.MicrophoneIgnore, name, true) {
-				continue
-			}
-			add("microphone used by " + name)
+	for _, t := range detect(cfg) {
+		if !slices.Contains(reasons, t.reason) {
+			reasons = append(reasons, t.reason)
 		}
 	}
 	return reasons
+}
+
+// triggerPids returns the processes that cause an automatic pause. They are
+// never paused themselves, even when an agent started them (e.g. a game
+// launched from a Claude session).
+func triggerPids(cfg AutoConfig) map[int]bool {
+	pids := map[int]bool{}
+	for _, t := range detect(cfg) {
+		pids[t.pid] = true
+	}
+	return pids
 }
 
 // observation is the raw input of auto-detection, shown in the dashboard to help configure it.

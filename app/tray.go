@@ -180,7 +180,7 @@ func (t *tray) refresh(sample bool) {
 
 	if sample {
 		if procs, err := listProcs(); err == nil {
-			t.sessions = agentSessions(procs, cfg.AgentProcesses)
+			t.sessions = agentSessions(procs, cfg.AgentProcesses, triggerPids(cfg.Auto))
 			t.registry = claudeRegistry()
 			active := s.Active(now)
 			t.sampler.update(procs, t.sessions, func(root int) bool {

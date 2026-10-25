@@ -21,6 +21,8 @@ type AutoConfig struct {
 	DisplaySleepApps []string `json:"display_sleep_apps"`
 	// Pause while any process with one of these names is running (e.g. games). Case-insensitive exact match.
 	RunningApps []string `json:"running_apps"`
+	// Pause while a process holds a power assertion that calls itself a game.
+	Games bool `json:"games"`
 	// Pause while any app records from the microphone (calls), except the ignored ones.
 	MicrophoneInUse  bool     `json:"microphone_in_use"`
 	MicrophoneIgnore []string `json:"microphone_ignore"`
@@ -57,6 +59,7 @@ func defaultConfig() Config {
 			Mode:               ModeFreeze,
 			DisplaySleepApps:   []string{"Teams", "zoom.us", "Webex", "FaceTime", "Keynote", "PowerPoint"},
 			RunningApps:        []string{},
+			Games:              true,
 			MicrophoneInUse:    true,
 			MicrophoneIgnore:   []string{"corespeechd", "Siri", "assistantd", "SpeechRecognitionCore", "localspeechrecognition"},
 			ResumeDelaySeconds: 60,
