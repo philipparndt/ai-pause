@@ -26,7 +26,11 @@ Usage:
   ai-pause install-claude-hook    register the hook in ~/.claude/settings.json
   ai-pause install-login          start the menu bar app at login
   ai-pause uninstall-login        stop starting it at login
+  ai-pause version                print the version
 `
+
+// version is set at build time from the VERSION file.
+var version = "dev"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -124,6 +128,8 @@ func main() {
 		_ = exec.Command("launchctl", "bootout", fmt.Sprintf("gui/%d/%s", os.Getuid(), launchAgentLabel)).Run()
 		check(os.Remove(launchAgentPath()))
 		fmt.Println("Removed", launchAgentPath())
+	case "version", "-v", "--version":
+		fmt.Println("ai-pause", version)
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 	default:

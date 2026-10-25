@@ -2,7 +2,7 @@ package main
 
 /*
 #cgo CFLAGS: -x objective-c -fobjc-arc -mmacosx-version-min=14.0
-#cgo LDFLAGS: -framework Cocoa -L${SRCDIR}/build -laipauseui
+#cgo LDFLAGS: -framework Cocoa -laipauseui
 void runApp(void);
 void setModel(char *json, int length);
 */

@@ -1,2 +1,11 @@
+# build output, release zips and notarization leftovers
 build/
 /ai-pause
+*.zip
+*.sha256
+
+# local tool state (session data, may contain paths and tokens)
+.abydos/
+.claude/
+
+.DS_Store

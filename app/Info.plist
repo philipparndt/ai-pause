@@ -7,6 +7,7 @@
   <key>CFBundleExecutable</key><string>ai-pause</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>CFBundleVersion</key><string>0.1.0</string>
   <key>LSMinimumSystemVersion</key><string>14.2</string>
   <!-- menu bar only, no Dock icon -->
   <key>LSUIElement</key><true/>
