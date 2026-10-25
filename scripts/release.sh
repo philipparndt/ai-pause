@@ -30,7 +30,9 @@ done
 echo "==> Signing with: $IDENTITY"
 codesign --force --timestamp --options runtime --sign "$IDENTITY" "$APP"
 codesign --verify --strict --verbose=2 "$APP"
-codesign -dvv "$APP" 2>&1 | grep -q "Authority=Developer ID Application" \
+# Captured first: grep -q exits early, and with pipefail the broken pipe fails the check.
+SIGNATURE=$(codesign -dvv "$APP" 2>&1)
+grep -q "Authority=Developer ID Application" <<<"$SIGNATURE" \
 	|| { echo "Stopping: not signed with a Developer ID, Apple would reject this."; exit 1; }
 
 # Stapled so the app doesn't have to ask Apple on first launch.
