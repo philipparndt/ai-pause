@@ -1,0 +1,1 @@
+- The settings window can no longer be resized so narrow that the mode table wraps its labels a few characters per line; a window saved that narrow opens at the minimum width
