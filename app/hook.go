@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 )
 
 type hookInput struct {
@@ -37,7 +36,7 @@ func commandAllowed(cmd string, allow *regexp.Regexp) bool {
 // denies heavy tools and tells the agent why.
 func runClaudeHook() {
 	s := loadState()
-	if !s.Active(time.Now()) {
+	if !s.Affects(os.Getppid()) {
 		return
 	}
 	var in hookInput

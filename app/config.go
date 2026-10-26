@@ -13,6 +13,11 @@ const (
 	ModeFreeze   = "freeze"   // + processes spawned by agents (tests, builds, browsers) are SIGSTOPped
 )
 
+// modeRank orders the modes by strength; no pause ("") ranks lowest.
+func modeRank(mode string) int {
+	return map[string]int{ModePolite: 1, ModeThrottle: 2, ModeFreeze: 3}[mode]
+}
+
 type AutoConfig struct {
 	Enabled bool   `json:"enabled"`
 	Mode    string `json:"mode"`

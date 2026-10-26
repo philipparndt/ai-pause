@@ -69,7 +69,7 @@ type dashSession struct {
 	Current   float64      `json:"current"`
 	Avg       float64      `json:"avg"`
 	Peak      float64      `json:"peak"`
-	Frozen    bool         `json:"frozen"`
+	Paused    bool         `json:"paused"`
 	Verdict   verdict      `json:"verdict"`
 	History   []dashSample `json:"history"`
 	Top       []procUsage  `json:"top"`
@@ -163,12 +163,12 @@ func (t *tray) snapshot(cfg Config, s State) dashSnapshot {
 		}
 		reg := t.registry[pid]
 		cwd := cmpOr(reg.Cwd, t.cwds[pid])
-		frozen := slices.Contains(s.FrozenSessions, pid)
+		paused := slices.Contains(s.PausedSessions, pid)
 		snap.Sessions = append(snap.Sessions, dashSession{
 			PID: pid, Name: cmpOr(reg.Name, baseName(cwd)), Status: reg.Status, Agent: sess.root.name,
 			Cwd: cwd, CwdShort: strings.Replace(cwd, home, "~", 1), Processes: len(sess.desc) + 1, Current: st.current(),
-			Avg: avg(st.history, historyLen), Peak: peak(st.history), Frozen: frozen,
-			Verdict: st.compliance(snap.Active || frozen), History: toDashSamples(st.history),
+			Avg: avg(st.history, historyLen), Peak: peak(st.history), Paused: paused,
+			Verdict: st.compliance(snap.Active || paused), History: toDashSamples(st.history),
 			Top: st.topProcs(sess, 8),
 		})
 	}

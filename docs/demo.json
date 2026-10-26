@@ -72,7 +72,7 @@
    "current": 91.7,
    "avg": 95.68950000000001,
    "peak": 125.6,
-   "frozen": false,
+   "paused": false,
    "verdict": {
     "text": "still busy: 120% \u2192 93%",
     "warn": true,
@@ -1106,7 +1106,7 @@
    "current": 9.9,
    "avg": 78.385,
    "peak": 205.7,
-   "frozen": false,
+   "paused": false,
    "verdict": {
     "text": "backed off: 180% \u2192 3%",
     "warn": false,
@@ -2140,7 +2140,7 @@
    "current": 4.4,
    "avg": 33.434,
    "peak": 80.8,
-   "frozen": true,
+   "paused": true,
    "verdict": {
     "text": "",
     "warn": false,
@@ -3174,7 +3174,7 @@
    "current": 0.6,
    "avg": 9.679,
    "peak": 21.0,
-   "frozen": false,
+   "paused": false,
    "verdict": {
     "text": "backed off: 180% \u2192 3%",
     "warn": false,

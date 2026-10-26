@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -26,8 +29,9 @@ type State struct {
 	Frozen    []int `json:"frozen,omitempty"`
 	Throttled []int `json:"throttled,omitempty"`
 
-	// Agent root pids frozen individually from the menu, independent of Paused.
-	FrozenSessions []int `json:"frozen_sessions,omitempty"`
+	// Agent root pids paused individually from the menu, independent of Paused.
+	// They get the configured mode.
+	PausedSessions []int `json:"paused_sessions,omitempty"`
 }
 
 func statePath() string { return filepath.Join(configDir(), "state.json") }
@@ -52,6 +56,25 @@ func (s State) Active(now time.Time) bool {
 	return s.Paused && (s.Until.IsZero() || now.Before(s.Until))
 }
 
+// Affects reports whether pid is paused: globally, or because it runs inside an
+// individually paused agent session.
+func (s State) Affects(pid int) bool {
+	if s.Active(time.Now()) {
+		return true
+	}
+	for len(s.PausedSessions) > 0 && pid > 1 {
+		if slices.Contains(s.PausedSessions, pid) {
+			return true
+		}
+		kp, err := unix.SysctlKinfoProc("kern.proc.pid", pid)
+		if err != nil {
+			return false
+		}
+		pid = int(kp.Eproc.Ppid)
+	}
+	return false
+}
+
 func (s State) Describe() string {
 	if !s.Active(time.Now()) {
 		return "AI agents running normally"
@@ -69,6 +92,12 @@ func (s State) Describe() string {
 }
 
 func (s State) AgentMessage() string {
+	if !s.Active(time.Now()) {
+		return "ai-pause: The user has paused this agent session. " +
+			"Do NOT run tests, builds, dev servers, browsers or anything CPU-intensive or that opens windows. " +
+			"You may keep reading and editing files. If you cannot continue without running commands, " +
+			"stop and tell the user you are waiting for the pause to be lifted. Do not poll or retry."
+	}
 	until := "until the user resumes"
 	if !s.Until.IsZero() {
 		until = "until about " + s.Until.Format("15:04")

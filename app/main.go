@@ -78,12 +78,12 @@ func main() {
 		}
 		fmt.Println(s.Describe())
 	case "check":
-		if s := loadState(); s.Active(time.Now()) {
+		if s := loadState(); s.Affects(os.Getppid()) {
 			fmt.Fprintln(os.Stderr, s.AgentMessage())
 			os.Exit(1)
 		}
 	case "wait":
-		for loadState().Active(time.Now()) {
+		for loadState().Affects(os.Getppid()) {
 			time.Sleep(5 * time.Second)
 		}
 	case "sessions":

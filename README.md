@@ -34,6 +34,10 @@ Requires macOS 14.2 or newer. To build from source: `make install` (needs Go and
 - **Throttle**: agent process trees also run at background priority.
 - **Freeze**: everything the agents started (tests, builds, browsers) is also stopped with `SIGSTOP` and continued on resume. The agents themselves keep running.
 
+A single agent session can also be paused on its own: expand its row in the popover and click *Pause*
+(or use the right-click menu). It gets the selected mode; `ai-pause check` and the hook only report the
+pause inside that session.
+
 Quitting the app always releases every process it touched.
 
 ## Settings

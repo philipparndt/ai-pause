@@ -34,13 +34,13 @@ struct Session: Decodable, Identifiable {
     let cwdShort: String
     let current: Double
     let avg: Double
-    let frozen: Bool
+    let paused: Bool
     let verdict: Verdict
     let history: [Sample]
     let top: [ProcUsage]
     var id: Int { pid }
 
-    enum CodingKeys: String, CodingKey { case pid, name, status, cwd, cwdShort, current, avg, frozen, verdict, history, top }
+    enum CodingKeys: String, CodingKey { case pid, name, status, cwd, cwdShort, current, avg, paused, verdict, history, top }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -51,7 +51,7 @@ struct Session: Decodable, Identifiable {
         cwdShort = try c.decode(String.self, forKey: .cwdShort)
         current = try c.decode(Double.self, forKey: .current)
         avg = try c.decode(Double.self, forKey: .avg)
-        frozen = try c.decode(Bool.self, forKey: .frozen)
+        paused = try c.decode(Bool.self, forKey: .paused)
         verdict = try c.decode(Verdict.self, forKey: .verdict)
         history = try c.list(.history)
         top = try c.list(.top)

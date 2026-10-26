@@ -57,7 +57,7 @@ func runTray() {
 func releaseProcesses() {
 	s := loadState()
 	active := s.Paused
-	s.Paused, s.FrozenSessions = false, nil
+	s.Paused, s.PausedSessions = false, nil
 	s = enforce(s, loadConfig())
 	s.Paused = active
 	_ = saveState(s)
@@ -123,12 +123,12 @@ func (t *tray) click(id string) {
 	case "auto":
 		cfg.Auto.Enabled = !cfg.Auto.Enabled
 		_ = saveConfig(cfg)
-	case "freeze":
+	case "pauseSession":
 		pid, _ := strconv.Atoi(arg)
-		if i := slices.Index(s.FrozenSessions, pid); i >= 0 {
-			s.FrozenSessions = slices.Delete(s.FrozenSessions, i, i+1)
+		if i := slices.Index(s.PausedSessions, pid); i >= 0 {
+			s.PausedSessions = slices.Delete(s.PausedSessions, i, i+1)
 		} else {
-			s.FrozenSessions = append(s.FrozenSessions, pid)
+			s.PausedSessions = append(s.PausedSessions, pid)
 		}
 	case "reveal":
 		closePopover()
@@ -184,7 +184,7 @@ func (t *tray) refresh(sample bool) {
 			t.registry = claudeRegistry()
 			active := s.Active(now)
 			t.sampler.update(procs, t.sessions, func(root int) bool {
-				return active || slices.Contains(s.FrozenSessions, root)
+				return active || slices.Contains(s.PausedSessions, root)
 			})
 			t.sampler.updateWatched(procs, t.sessions, cfg.WatchProcesses)
 		}
@@ -323,7 +323,7 @@ func (t *tray) sessionItem(sess session, s State, active bool) MenuItem {
 	if known && reg.Name != "" {
 		name = reg.Name
 	}
-	frozen := slices.Contains(s.FrozenSessions, pid)
+	paused := slices.Contains(s.PausedSessions, pid)
 
 	var sub []string
 	if known && reg.Status != "" {
@@ -332,8 +332,8 @@ func (t *tray) sessionItem(sess session, s State, active bool) MenuItem {
 		sub = append(sub, sess.root.name)
 	}
 	sub = append(sub, fmt.Sprintf("%d processes", len(sess.desc)+1))
-	if frozen {
-		sub = append(sub, "frozen")
+	if paused {
+		sub = append(sub, "paused")
 	}
 	item := MenuItem{ID: "session:" + strconv.Itoa(pid), Title: name, Tooltip: shortCwd}
 
@@ -341,7 +341,7 @@ func (t *tray) sessionItem(sess session, s State, active bool) MenuItem {
 	if st == nil {
 		st = &sessionStats{}
 	}
-	v := st.compliance(active || frozen)
+	v := st.compliance(active || paused)
 	warn := v.Warn
 	if warn {
 		sub = append(sub, "still busy")
@@ -372,7 +372,7 @@ func (t *tray) sessionItem(sess session, s State, active bool) MenuItem {
 		MenuItem{Kind: "separator", Hidden: v.Text == ""},
 		MenuItem{Title: v.Text, Disabled: true, Hidden: v.Text == ""})
 	item.Children = append(item.Children, separator(),
-		MenuItem{ID: "freeze:" + strconv.Itoa(pid), Title: "Freeze This Session", Symbol: "snowflake", Checked: frozen},
+		MenuItem{ID: "pauseSession:" + strconv.Itoa(pid), Title: "Pause This Session", Symbol: "pause.circle", Checked: paused},
 		MenuItem{ID: "reveal:" + cwd, Title: "Show in Finder", Symbol: "folder"},
 	)
 	return item

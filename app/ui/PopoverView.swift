@@ -249,7 +249,7 @@ struct SessionRow: View {
     private var state: (String, Color) {
         let s = session
         if s.verdict.warn { return ("STILL BUSY", Theme.orange) }
-        if s.frozen { return ("FROZEN", Theme.frozen) }
+        if s.paused { return ("PAUSED", Theme.frozen) }
         if s.verdict.ok { return ("BACKED OFF", Theme.green) }
         return s.status == "busy" ? ("BUSY", Theme.text) : ("IDLE", Theme.muted)
     }
@@ -299,8 +299,8 @@ struct SessionRow: View {
                 Text(s.verdict.text).font(.system(size: 11)).foregroundStyle(s.verdict.warn ? Theme.orange : Theme.muted2)
             }
             HStack(spacing: 4) {
-                Pill(title: s.frozen ? "Unfreeze" : "Freeze", kind: s.frozen ? .on : .normal, small: true, fill: false) {
-                    Bridge.click("freeze:\(s.pid)")
+                Pill(title: s.paused ? "Resume" : "Pause", kind: s.paused ? .on : .normal, small: true, fill: false) {
+                    Bridge.click("pauseSession:\(s.pid)")
                 }
                 Pill(title: "Show in Finder", small: true, fill: false) { Bridge.click("reveal:\(s.cwd)") }
                 Text(s.cwdShort).font(.mono(10)).foregroundStyle(Theme.muted).lineLimit(1).truncationMode(.middle)

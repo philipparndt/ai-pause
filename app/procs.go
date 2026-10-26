@@ -124,14 +124,16 @@ func enforce(s State, cfg Config) State {
 	if s.Paused && !s.Active(now) {
 		s.Paused = false // expired
 	}
-	freezeAll := s.Paused && s.Mode == ModeFreeze
-	throttleAll := s.Paused && (s.Mode == ModeThrottle || s.Mode == ModeFreeze)
+	globalMode := ""
+	if s.Paused {
+		globalMode = s.Mode
+	}
 
 	var sessions []session
 	// Processes that triggered the pause (a game, a call) and the processes that
 	// started them keep running at full speed.
 	keep := map[int]bool{}
-	if procs, err := listProcs(); err == nil && (freezeAll || throttleAll || len(s.FrozenSessions) > 0) {
+	if procs, err := listProcs(); err == nil && (modeRank(globalMode) > modeRank(ModePolite) || len(s.PausedSessions) > 0) {
 		triggers := triggerPids(cfg.Auto)
 		sessions = agentSessions(procs, cfg.AgentProcesses, triggers)
 		parent := map[int]int{}
@@ -148,20 +150,23 @@ func enforce(s State, cfg Config) State {
 	// Agent roots themselves are never stopped: they are usually the foreground
 	// job of a terminal, and the shell would treat them as suspended (needing `fg`).
 	// Stopping their children is enough to halt tests, builds and browsers.
-	var frozen, throttled, frozenSessions []int
+	var frozen, throttled, pausedSessions []int
 	for _, sess := range sessions {
-		sessionFrozen := slices.Contains(s.FrozenSessions, sess.root.pid)
-		if sessionFrozen {
-			frozenSessions = append(frozenSessions, sess.root.pid)
+		mode := globalMode
+		if slices.Contains(s.PausedSessions, sess.root.pid) {
+			pausedSessions = append(pausedSessions, sess.root.pid)
+			if modeRank(cfg.Mode) > modeRank(mode) {
+				mode = cfg.Mode
+			}
 		}
-		if freezeAll || sessionFrozen {
+		if mode == ModeFreeze {
 			for _, p := range sess.desc {
 				if !keep[p.pid] && syscall.Kill(p.pid, syscall.SIGSTOP) == nil {
 					frozen = append(frozen, p.pid)
 				}
 			}
 		}
-		if throttleAll {
+		if modeRank(mode) >= modeRank(ModeThrottle) {
 			for _, pid := range sess.pids() {
 				if !keep[pid] && setBackground(pid, true) == nil {
 					throttled = append(throttled, pid)
@@ -180,7 +185,7 @@ func enforce(s State, cfg Config) State {
 		}
 	}
 
-	s.Frozen, s.Throttled, s.FrozenSessions = frozen, throttled, frozenSessions
+	s.Frozen, s.Throttled, s.PausedSessions = frozen, throttled, pausedSessions
 	return s
 }
 
