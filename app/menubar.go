@@ -46,7 +46,6 @@ type MenuItem struct {
 
 type MenuModel struct {
 	Icon        string     `json:"icon"`
-	IconColor   string     `json:"iconColor,omitempty"`
 	ButtonTitle string     `json:"buttonTitle,omitempty"`
 	Items       []MenuItem `json:"items"`
 }

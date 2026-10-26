@@ -223,7 +223,7 @@ func (t *tray) model(cfg Config, s State) MenuModel {
 	active := s.Active(now)
 	m := MenuModel{Icon: "cpu"}
 	if active {
-		m.Icon, m.IconColor = "pause.circle.fill", "orange"
+		m.Icon = "pause.circle.fill"
 		if !s.Until.IsZero() {
 			m.ButtonTitle = shortDuration(s.Until.Sub(now))
 		}

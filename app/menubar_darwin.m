@@ -225,7 +225,6 @@ static NSString *structureOf(NSArray *items) {
 	NSStatusBarButton *button = self.statusItem.button;
 	NSImage *icon = statusIcon(symbolImage(model[@"icon"], nil, 15));
 	button.image = icon;
-	button.contentTintColor = namedColor(model[@"iconColor"]);
 	button.title = model[@"buttonTitle"] ?: @"";
 	button.imagePosition = button.title.length ? NSImageLeading : NSImageOnly;
 
