@@ -1,0 +1,2 @@
+- Opening AI Pause while it already runs no longer adds a second icon to the menu bar
+- The login item is listed as AI Pause in System Settings → General → Login Items instead of under the developer's name. Run `ai-pause install-login` once to update an existing login item
