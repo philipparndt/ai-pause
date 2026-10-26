@@ -140,6 +140,10 @@ func main() {
 
 const launchAgentLabel = "de.philipparndt.ai-pause"
 
+// bundleID matches CFBundleIdentifier in Info.plist. Naming it in the LaunchAgent makes
+// System Settings list the login item as AI Pause instead of the signing developer.
+const bundleID = "de.philipparndt.ai-pause"
+
 func launchAgentPath() string {
 	home, _ := os.UserHomeDir()
 	return filepath.Join(home, "Library", "LaunchAgents", launchAgentLabel+".plist")
@@ -156,13 +160,14 @@ func installLoginItem() error {
 <plist version="1.0">
 <dict>
   <key>Label</key><string>%s</string>
+  <key>AssociatedBundleIdentifiers</key><string>%s</string>
   <key>ProgramArguments</key><array><string>%s</string><string>tray</string></array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><dict><key>SuccessfulExit</key><false/></dict>
   <key>ProcessType</key><string>Interactive</string>
 </dict>
 </plist>
-`, launchAgentLabel, exe)
+`, launchAgentLabel, bundleID, exe)
 	if err := writeFileAtomic(launchAgentPath(), []byte(plist)); err != nil {
 		return err
 	}
