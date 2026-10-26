@@ -10,6 +10,8 @@ struct PopoverView: View {
     @ObservedObject var store: Store
     @State private var expanded: Int?
     @State private var contentHeight: CGFloat = 420
+    @State private var hoveredTotal: Sample?
+    @State private var hoveredHog: [String: Sample] = [:]
 
     init(store: Store) { self.store = store }
 
@@ -116,9 +118,10 @@ struct PopoverView: View {
             HStack(alignment: .firstTextBaseline) {
                 Cap("ALL AGENTS")
                 Spacer()
-                Text(values.last.map(pct) ?? "–").font(.mono(15, .semibold))
+                Text(hoveredTotal.map { pct($0.p) } ?? values.last.map(pct) ?? "–").font(.mono(15, .semibold))
+                    .historic(hoveredTotal != nil)
             }
-            BarChart(samples: s.total).frame(height: 34)
+            BarChart(samples: s.total) { hoveredTotal = $0 }.frame(height: 34)
             (Text("avg ") + Text(values.isEmpty ? "–" : pct(values.reduce(0, +) / Double(values.count))).bold().foregroundColor(Theme.text)
                 + Text(" · peak ") + Text(values.max().map(pct) ?? "–").bold().foregroundColor(Theme.text))
                 .font(.mono(10)).foregroundStyle(Theme.muted)
@@ -200,8 +203,9 @@ struct PopoverView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         Text("NOT AN AGENT").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.muted)
                             .frame(width: 70, alignment: .leading).lineLimit(1).minimumScaleFactor(0.8)
-                        BarChart(samples: h.history, color: Theme.red).frame(width: 92, height: 22)
-                        Text(pct(h.current)).font(.mono(12, .semibold)).foregroundStyle(Theme.red)
+                        BarChart(samples: h.history, color: Theme.red) { hoveredHog[h.id] = $0 }.frame(width: 92, height: 22)
+                        Text(pct(hoveredHog[h.id]?.p ?? h.current)).font(.mono(12, .semibold)).foregroundStyle(Theme.red)
+                            .historic(hoveredHog[h.id] != nil)
                             .frame(width: 38, alignment: .trailing)
                     }
                     .padding(.vertical, 6)
@@ -234,6 +238,7 @@ struct SessionRow: View {
     let expanded: Bool
     let toggle: () -> Void
     @State private var hover = false
+    @State private var hoveredSample: Sample?
 
     init(session: Session, expanded: Bool, toggle: @escaping () -> Void) {
         self.session = session
@@ -262,8 +267,9 @@ struct SessionRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Text(state.0).font(.system(size: 10, weight: .semibold)).foregroundStyle(state.1)
                     .frame(width: 70, alignment: .leading)
-                BarChart(samples: s.history, warn: warn).frame(width: 92, height: 22)
-                Text(pct(s.current)).font(.mono(12, .semibold)).foregroundStyle(warn ? Theme.orange : Theme.text)
+                BarChart(samples: s.history, warn: warn) { hoveredSample = $0 }.frame(width: 92, height: 22)
+                Text(pct(hoveredSample?.p ?? s.current)).font(.mono(12, .semibold)).foregroundStyle(warn ? Theme.orange : Theme.text)
+                    .historic(hoveredSample != nil)
                     .frame(width: 38, alignment: .trailing)
             }
             if expanded { detail.padding(.top, 8).padding(.bottom, 2) }

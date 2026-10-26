@@ -153,12 +153,39 @@ struct BarChart: View {
     var warn = false
     var color: Color = Theme.blue
     var capacity = 40
+    /// Called with the sample under the pointer, nil when it leaves.
+    var onHover: (Sample?) -> Void = { _ in }
+    @State private var hovered: Int?
 
     var body: some View {
+        GeometryReader { geo in
+            chart(hovered: hovered)
+                .contentShape(Rectangle())
+                .onContinuousHover { phase in
+                    var i: Int?
+                    if case .active(let p) = phase { i = index(at: p.x, width: geo.size.width) }
+                    guard i != hovered else { return }
+                    hovered = i
+                    onHover(i.map { Array(samples.suffix(capacity))[$0] })
+                }
+        }
+        .accessibilityHidden(true)
+    }
+
+    /// Index into the visible samples under x, or nil over the empty left part.
+    private func index(at x: CGFloat, width: CGFloat) -> Int? {
+        let n = min(samples.count, capacity)
+        let i = Int(x / (width / CGFloat(capacity))) - (capacity - n)
+        return n > 0 && i >= 0 ? min(i, n - 1) : nil
+    }
+
+    private func chart(hovered: Int?) -> some View {
         Canvas { ctx, size in
             let pts = Array(samples.suffix(capacity))
             guard !pts.isEmpty else { return }
-            let top = max(50, pts.map(\.p).max() ?? 0) * 1.05
+            // 1 CPU at the top; a chart that ever needs more switches to 10 CPUs and turns red.
+            let high = (pts.map(\.p).max() ?? 0) > 100
+            let top: Double = high ? 1000 : 100
             let step = size.width / CGFloat(capacity)
             let off = CGFloat(capacity - pts.count) * step
             var i = 0
@@ -172,13 +199,28 @@ struct BarChart: View {
                     i += 1
                 }
             }
+            if let h = hovered {
+                ctx.fill(Path(CGRect(x: off + CGFloat(h) * step, y: 0, width: max(1, step - 1), height: size.height)), with: .color(Theme.line2))
+            }
             for (i, s) in pts.enumerated() {
-                let h = max(1, s.p / top * (size.height - 2))
-                let color = warn ? Theme.orange : s.z ? Theme.dim : self.color
+                let h = max(1, min(s.p, top) / top * (size.height - 2))
+                let color = i == hovered ? Theme.text : warn ? Theme.orange : s.z ? Theme.dim : high ? Theme.red : self.color
                 ctx.fill(Path(CGRect(x: off + CGFloat(i) * step, y: size.height - h, width: max(1, step - 1), height: h)), with: .color(color))
             }
         }
-        .accessibilityHidden(true)
+    }
+}
+
+extension View {
+    /// Marks a value read from the chart history, so it doesn't pass for the live one.
+    func historic(_ on: Bool) -> some View {
+        background {
+            if on {
+                RoundedRectangle(cornerRadius: 3).fill(Theme.field)
+                    .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Theme.line2))
+                    .padding(.horizontal, -4).padding(.vertical, -1)
+            }
+        }
     }
 }
 
