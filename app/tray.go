@@ -26,7 +26,30 @@ var modeInfo = map[string]struct{ title, desc, symbol string }{
 	ModeFreeze:   {"Freeze", "Also stop running tests, builds, browsers", "snowflake"},
 }
 
+// trayLock stays open for the life of the tray; the OS drops the lock when the process ends.
+var trayLock *os.File
+
+// singleInstance reports whether this is the only tray. Opening the app while the
+// login item already runs it would otherwise put a second icon in the menu bar.
+func singleInstance() bool {
+	_ = os.MkdirAll(configDir(), 0o755)
+	f, err := os.OpenFile(filepath.Join(configDir(), "tray.lock"), os.O_CREATE|os.O_RDWR, 0o644)
+	if err != nil {
+		return true // can't tell; better two icons than none
+	}
+	if syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) != nil {
+		f.Close()
+		return false
+	}
+	trayLock = f
+	return true
+}
+
 func runTray() {
+	if !singleInstance() {
+		fmt.Fprintln(os.Stderr, "ai-pause: already running in the menu bar")
+		return
+	}
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	go func() {
