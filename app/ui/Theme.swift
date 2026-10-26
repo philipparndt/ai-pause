@@ -146,42 +146,76 @@ struct MiniToggle: View {
     }
 }
 
-/// Bar chart of the last `capacity` samples. Samples taken while paused are
-/// dimmed and the paused span is shaded.
+/// The time span every chart shows, switched by clicking a chart.
+enum ChartRange: Int, CaseIterable {
+    case two = 2, five = 5, fifteen = 15
+
+    static let key = "chartRange"
+    static let sampleSeconds = 3
+
+    var label: String { "\(rawValue) MIN" }
+    var next: ChartRange { Self.allCases[(Self.allCases.firstIndex(of: self)! + 1) % Self.allCases.count] }
+    /// Samples taken during the range.
+    var sampleCount: Int { rawValue * 60 / Self.sampleSeconds }
+
+    /// Merges samples into at most `count` bars, each holding the highest value of its
+    /// slice of time. Slices follow the clock, so bars don't shift as samples arrive.
+    func bars(_ samples: [Sample], count: Int) -> [Sample] {
+        guard sampleCount > count else { return Array(samples.suffix(count)) }
+        let slice = Int64(rawValue) * 60_000 / Int64(count)
+        var out: [Sample] = []
+        var last: Int64?
+        for s in samples {
+            let id = s.t / slice
+            if id == last, let prev = out.last {
+                out[out.count - 1] = Sample(t: s.t, p: max(prev.p, s.p), z: prev.z || s.z, w: (prev.w ?? 0) + (s.w ?? 0))
+            } else {
+                out.append(s)
+                last = id
+            }
+        }
+        return Array(out.suffix(count))
+    }
+}
+
+/// Bar chart of the last `capacity` bars of the chosen range. Samples taken while
+/// paused are dimmed and the paused span is shaded.
 struct BarChart: View {
     let samples: [Sample]
     var warn = false
     var color: Color = Theme.blue
     var capacity = 40
-    /// Called with the sample under the pointer, nil when it leaves.
+    /// Called with the bar under the pointer, nil when it leaves.
     var onHover: (Sample?) -> Void = { _ in }
     @State private var hovered: Int?
+    @AppStorage(ChartRange.key) private var range = ChartRange.two
 
     var body: some View {
+        let pts = range.bars(samples, count: capacity)
         GeometryReader { geo in
-            chart(hovered: hovered)
+            chart(pts, hovered: hovered)
                 .contentShape(Rectangle())
                 .onContinuousHover { phase in
                     var i: Int?
-                    if case .active(let p) = phase { i = index(at: p.x, width: geo.size.width) }
+                    if case .active(let p) = phase { i = index(at: p.x, width: geo.size.width, count: pts.count) }
                     guard i != hovered else { return }
                     hovered = i
-                    onHover(i.map { Array(samples.suffix(capacity))[$0] })
+                    onHover(i.map { pts[$0] })
                 }
+                .onTapGesture { range = range.next }
         }
+        .help("Click to show 2, 5 or 15 minutes")
         .accessibilityHidden(true)
     }
 
-    /// Index into the visible samples under x, or nil over the empty left part.
-    private func index(at x: CGFloat, width: CGFloat) -> Int? {
-        let n = min(samples.count, capacity)
+    /// Index into the bars under x, or nil over the empty left part.
+    private func index(at x: CGFloat, width: CGFloat, count n: Int) -> Int? {
         let i = Int(x / (width / CGFloat(capacity))) - (capacity - n)
         return n > 0 && i >= 0 ? min(i, n - 1) : nil
     }
 
-    private func chart(hovered: Int?) -> some View {
+    private func chart(_ pts: [Sample], hovered: Int?) -> some View {
         Canvas { ctx, size in
-            let pts = Array(samples.suffix(capacity))
             guard !pts.isEmpty else { return }
             // 1 CPU at the top; a chart that ever needs more switches to 10 CPUs and turns red.
             let high = (pts.map(\.p).max() ?? 0) > 100
@@ -206,6 +240,12 @@ struct BarChart: View {
                 let h = max(1, min(s.p, top) / top * (size.height - 2))
                 let color = i == hovered ? Theme.text : warn ? Theme.orange : s.z ? Theme.dim : high ? Theme.red : self.color
                 ctx.fill(Path(CGRect(x: off + CGFloat(i) * step, y: size.height - h, width: max(1, step - 1), height: h)), with: .color(color))
+            }
+            // A dot on top of the chart where an agent opened windows.
+            let d = min(4, max(3, step))
+            for (i, s) in pts.enumerated() where (s.w ?? 0) > 0 {
+                let x = off + CGFloat(i) * step + (step - 1) / 2
+                ctx.fill(Path(ellipseIn: CGRect(x: x - d / 2, y: 0, width: d, height: d)), with: .color(Theme.text))
             }
         }
     }

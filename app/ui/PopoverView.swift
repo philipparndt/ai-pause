@@ -11,6 +11,7 @@ struct PopoverView: View {
     @State private var expanded: Int?
     @State private var contentHeight: CGFloat = 420
     @State private var hoveredTotal: Sample?
+    @AppStorage(ChartRange.key) private var range = ChartRange.two
     @State private var hoveredHog: [String: Sample] = [:]
 
     init(store: Store) { self.store = store }
@@ -112,7 +113,7 @@ struct PopoverView: View {
     }
 
     private func totalTile(_ s: Snapshot) -> some View {
-        let total = s.total.suffix(40)
+        let total = s.total.suffix(range.sampleCount)
         let values = total.map(\.p)
         return VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
@@ -168,7 +169,10 @@ struct PopoverView: View {
             HStack(spacing: 8) {
                 Cap("SESSION").frame(maxWidth: .infinity, alignment: .leading)
                 Cap("STATE").frame(width: 70, alignment: .leading)
-                Cap("2 MIN").frame(width: 92, alignment: .leading)
+                Cap(range.label).frame(width: 92, alignment: .leading)
+                    .contentShape(Rectangle())
+                    .onTapGesture { range = range.next }
+                    .help("Click to show 2, 5 or 15 minutes")
                 Cap("NOW").frame(width: 38, alignment: .trailing)
             }
             .padding(.horizontal, 4)
@@ -286,6 +290,9 @@ struct SessionRow: View {
     private var detail: some View {
         let s = session
         return VStack(alignment: .leading, spacing: 6) {
+            Text("\(s.processes) \(s.processes == 1 ? "process" : "processes") · \(s.windows) \(s.windows == 1 ? "window" : "windows")")
+                .font(.mono(10)).foregroundStyle(Theme.muted)
+                .help("Windows on screen; windows on other Spaces or minimized ones aren't counted.")
             Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 2) {
                 ForEach(Array(s.top.prefix(6).enumerated()), id: \.offset) { _, p in
                     GridRow {

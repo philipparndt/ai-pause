@@ -57,7 +57,8 @@ func runTray() {
 		releaseProcesses()
 		os.Exit(0)
 	}()
-	t := &tray{sampler: newSampler(), cwds: map[int]string{}, views: map[string]bool{}}
+	t := &tray{sampler: newSampler(), cwds: map[int]string{}, views: map[string]bool{}, watcher: newWindowWatcher()}
+	go t.watcher.run()
 	onUIMessage = t.handleUIMessage
 	onUIVisibility = func(view string, visible bool) {
 		t.mu.Lock()
@@ -94,6 +95,8 @@ type tray struct {
 	sampler      *sampler
 	sessions     []session
 	registry     map[int]claudeSession
+	windows      map[int]int // on-screen windows per pid
+	watcher      *windowWatcher
 	cwds         map[int]string
 	menuOpen     bool
 	views        map[string]bool // visible popover / settings window
@@ -205,10 +208,12 @@ func (t *tray) refresh(sample bool) {
 		if procs, err := listProcs(); err == nil {
 			t.sessions = agentSessions(procs, cfg.AgentProcesses, triggerPids(cfg.Auto))
 			t.registry = claudeRegistry()
+			var opened map[int]int
+			opened, t.windows = t.watcher.take(t.sessions)
 			active := s.Active(now)
 			t.sampler.update(procs, t.sessions, func(root int) bool {
 				return active || slices.Contains(s.PausedSessions, root)
-			})
+			}, opened)
 			t.sampler.updateWatched(procs, t.sessions, cfg.WatchProcesses)
 		}
 	}
@@ -355,6 +360,11 @@ func (t *tray) sessionItem(sess session, s State, active bool) MenuItem {
 		sub = append(sub, sess.root.name)
 	}
 	sub = append(sub, fmt.Sprintf("%d processes", len(sess.desc)+1))
+	if w := sess.windows(t.windows); w == 1 {
+		sub = append(sub, "1 window")
+	} else if w > 1 {
+		sub = append(sub, fmt.Sprintf("%d windows", w))
+	}
 	if paused {
 		sub = append(sub, "paused")
 	}

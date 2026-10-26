@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	historyLen  = 200 // samples kept per session (10 minutes at 3s ticks), shown in the dashboard
+	historyLen  = 300 // samples kept per session (15 minutes at 3s ticks), the longest chart range
 	menuHistory = 40  // samples shown in the menu (2 minutes)
 )
 
@@ -17,6 +17,7 @@ type sample struct {
 	at     time.Time
 	pct    float64 // CPU usage, 100 = one core
 	paused bool
+	opened int // windows opened during the interval
 }
 
 type sessionStats struct {
@@ -56,7 +57,8 @@ func appendSample(h []sample, s sample) []sample {
 	return h
 }
 
-func (sm *sampler) update(procs []proc, sessions []session, isPaused func(root int) bool) {
+// opened holds the windows opened per session root since the last update.
+func (sm *sampler) update(procs []proc, sessions []session, isPaused func(root int) bool, opened map[int]int) {
 	now := time.Now()
 	elapsed := now.Sub(sm.prevAt).Seconds()
 	first := sm.prevAt.IsZero()
@@ -76,7 +78,7 @@ func (sm *sampler) update(procs []proc, sessions []session, isPaused func(root i
 
 	alive := map[int]bool{}
 	var sum float64
-	anyPaused := false
+	anyPaused, allOpened := false, 0
 	for _, sess := range sessions {
 		alive[sess.root.pid] = true
 		st := sm.stats[sess.root.pid]
@@ -105,9 +107,10 @@ func (sm *sampler) update(procs []proc, sessions []session, isPaused func(root i
 			st.after = (st.after*float64(st.afterN) + total) / float64(st.afterN+1)
 			st.afterN++
 		}
-		st.history = appendSample(st.history, sample{at: now, pct: total, paused: paused})
+		st.history = appendSample(st.history, sample{at: now, pct: total, paused: paused, opened: opened[sess.root.pid]})
+		allOpened += opened[sess.root.pid]
 	}
-	sm.total = appendSample(sm.total, sample{at: now, pct: sum, paused: anyPaused})
+	sm.total = appendSample(sm.total, sample{at: now, pct: sum, paused: anyPaused, opened: allOpened})
 	for pid := range sm.stats {
 		if !alive[pid] {
 			delete(sm.stats, pid)

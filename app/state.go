@@ -62,17 +62,22 @@ func (s State) Affects(pid int) bool {
 	if s.Active(time.Now()) {
 		return true
 	}
-	for len(s.PausedSessions) > 0 && pid > 1 {
-		if slices.Contains(s.PausedSessions, pid) {
-			return true
+	return len(s.PausedSessions) > 0 && ancestorIn(pid, func(p int) bool { return slices.Contains(s.PausedSessions, p) }) != 0
+}
+
+// ancestorIn returns pid or its closest ancestor for which match is true, 0 if none.
+func ancestorIn(pid int, match func(int) bool) int {
+	for pid > 1 {
+		if match(pid) {
+			return pid
 		}
 		kp, err := unix.SysctlKinfoProc("kern.proc.pid", pid)
 		if err != nil {
-			return false
+			return 0
 		}
 		pid = int(kp.Eproc.Ppid)
 	}
-	return false
+	return 0
 }
 
 func (s State) Describe() string {

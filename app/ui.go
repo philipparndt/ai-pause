@@ -53,9 +53,10 @@ func uiVisibility(view *C.char, visible C.int) {
 }
 
 type dashSample struct {
-	T int64   `json:"t"` // unix ms
-	P float64 `json:"p"` // CPU %, 100 = one core
-	Z bool    `json:"z"` // paused
+	T int64   `json:"t"`           // unix ms
+	P float64 `json:"p"`           // CPU %, 100 = one core
+	Z bool    `json:"z"`           // paused
+	W int     `json:"w,omitempty"` // windows opened
 }
 
 type dashSession struct {
@@ -66,6 +67,7 @@ type dashSession struct {
 	Cwd       string       `json:"cwd"`
 	CwdShort  string       `json:"cwdShort"`
 	Processes int          `json:"processes"`
+	Windows   int          `json:"windows"`
 	Current   float64      `json:"current"`
 	Avg       float64      `json:"avg"`
 	Peak      float64      `json:"peak"`
@@ -112,7 +114,7 @@ type notice struct {
 func toDashSamples(h []sample) []dashSample {
 	out := make([]dashSample, len(h))
 	for i, s := range h {
-		out[i] = dashSample{T: s.at.UnixMilli(), P: s.pct, Z: s.paused}
+		out[i] = dashSample{T: s.at.UnixMilli(), P: s.pct, Z: s.paused, W: s.opened}
 	}
 	return out
 }
@@ -166,7 +168,7 @@ func (t *tray) snapshot(cfg Config, s State) dashSnapshot {
 		paused := slices.Contains(s.PausedSessions, pid)
 		snap.Sessions = append(snap.Sessions, dashSession{
 			PID: pid, Name: cmpOr(reg.Name, baseName(cwd)), Status: reg.Status, Agent: sess.root.name,
-			Cwd: cwd, CwdShort: strings.Replace(cwd, home, "~", 1), Processes: len(sess.desc) + 1, Current: st.current(),
+			Cwd: cwd, CwdShort: strings.Replace(cwd, home, "~", 1), Processes: len(sess.desc) + 1, Windows: sess.windows(t.windows), Current: st.current(),
 			Avg: avg(st.history, historyLen), Peak: peak(st.history), Paused: paused,
 			Verdict: st.compliance(snap.Active || paused), History: toDashSamples(st.history),
 			Top: st.topProcs(sess, 8),

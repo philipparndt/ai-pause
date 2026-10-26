@@ -12,6 +12,7 @@ struct Sample: Decodable {
     let t: Int64
     let p: Double
     let z: Bool
+    let w: Int? // windows opened during the interval
 }
 
 struct ProcUsage: Decodable {
@@ -32,6 +33,8 @@ struct Session: Decodable, Identifiable {
     let status: String
     let cwd: String
     let cwdShort: String
+    let processes: Int
+    let windows: Int
     let current: Double
     let avg: Double
     let paused: Bool
@@ -40,7 +43,7 @@ struct Session: Decodable, Identifiable {
     let top: [ProcUsage]
     var id: Int { pid }
 
-    enum CodingKeys: String, CodingKey { case pid, name, status, cwd, cwdShort, current, avg, paused, verdict, history, top }
+    enum CodingKeys: String, CodingKey { case pid, name, status, cwd, cwdShort, processes, windows, current, avg, paused, verdict, history, top }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -49,6 +52,8 @@ struct Session: Decodable, Identifiable {
         status = try c.decode(String.self, forKey: .status)
         cwd = try c.decode(String.self, forKey: .cwd)
         cwdShort = try c.decode(String.self, forKey: .cwdShort)
+        processes = try c.decodeIfPresent(Int.self, forKey: .processes) ?? 0
+        windows = try c.decodeIfPresent(Int.self, forKey: .windows) ?? 0
         current = try c.decode(Double.self, forKey: .current)
         avg = try c.decode(Double.self, forKey: .avg)
         paused = try c.decode(Bool.self, forKey: .paused)
