@@ -1,0 +1,3 @@
+- Each agent session shows how many windows it has open, next to its processes
+- A dot on top of a chart marks when an agent opened a window, also windows that were open for under a second. Dialogs count; windows coming back from another Space or the Dock don't
+- Click a chart or the range header to switch all charts between 2, 5 and 15 minutes. Each bar shows the highest value of its slice of time
