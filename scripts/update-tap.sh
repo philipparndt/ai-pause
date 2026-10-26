@@ -49,7 +49,7 @@ cask "ai-pause" do
     strategy :github_latest
   end
 
-  depends_on macos: ">= :sonoma"
+  depends_on macos: :sonoma
 
   app "AI Pause.app"
   binary "#{appdir}/AI Pause.app/Contents/MacOS/ai-pause"
