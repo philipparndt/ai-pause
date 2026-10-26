@@ -83,6 +83,9 @@ func menuClicked(id *C.char) {
 	go onMenuClick(s)
 }
 
+//export appWillTerminate
+func appWillTerminate() { releaseProcesses() }
+
 //export menuOpened
 func menuOpened() { go onMenuOpened() }
 

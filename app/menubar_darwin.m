@@ -301,6 +301,12 @@ void runApp(void) {
 		button.action = @selector(statusClicked:);
 		[button sendActionOn:NSEventMaskLeftMouseUp | NSEventMaskRightMouseUp];
 		aipause_ui_init();
+		// A quit request (e.g. from Homebrew during an upgrade) ends the app without
+		// going through the Quit menu item; release what it froze first.
+		[NSNotificationCenter.defaultCenter addObserverForName:NSApplicationWillTerminateNotification
+		                                                 object:nil queue:nil usingBlock:^(NSNotification *n) {
+			appWillTerminate();
+		}];
 		menuReady();
 		[NSApp run];
 	}
