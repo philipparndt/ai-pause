@@ -69,6 +69,22 @@ final class PopoverController: NSObject, NSPopoverDelegate {
         }
         NSApp.activate(ignoringOtherApps: true)
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        fillFrame()
+    }
+
+    /// The popover's frame (including the arrow) draws the system material; a view
+    /// in our background color behind the content makes the arrow match it.
+    private var background: NSView?
+    private func fillFrame() {
+        guard background == nil, let content = popover.contentViewController?.view.window?.contentView,
+              let frame = content.superview else { return }
+        let bg = NSView(frame: frame.bounds)
+        bg.wantsLayer = true
+        bg.layer?.backgroundColor = NSColor(Theme.bg).cgColor
+        bg.autoresizingMask = [.width, .height]
+        // Above the frame's material view, below the content.
+        frame.addSubview(bg, positioned: .below, relativeTo: content)
+        background = bg
     }
 
     func popoverDidShow(_ notification: Notification) { Bridge.visibility("popover", true) }
