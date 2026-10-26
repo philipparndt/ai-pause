@@ -24,6 +24,19 @@ static NSImage *symbolImage(NSString *name, NSString *color, CGFloat size) {
 	return [img imageWithSymbolConfiguration:cfg];
 }
 
+// A symbol's alignment rect is its cap-height band, which the status bar
+// centers instead of the glyph, so the icon sat higher than the system ones.
+// Redrawn, the alignment rect is the whole image and the glyph is centered.
+static NSImage *statusIcon(NSImage *symbol) {
+	if (!symbol) return nil;
+	NSImage *img = [NSImage imageWithSize:symbol.size flipped:NO drawingHandler:^BOOL(NSRect dst) {
+		[symbol drawInRect:dst];
+		return YES;
+	}];
+	img.template = YES;
+	return img;
+}
+
 // Area chart of CPU usage with paused periods shaded, followed by the current value.
 static NSImage *graphImage(NSDictionary *g) {
 	NSArray<NSNumber *> *values = g[@"values"];
@@ -210,8 +223,7 @@ static NSString *structureOf(NSArray *items) {
 
 - (void)apply:(NSDictionary *)model {
 	NSStatusBarButton *button = self.statusItem.button;
-	NSImage *icon = symbolImage(model[@"icon"], nil, 15);
-	icon.template = YES;
+	NSImage *icon = statusIcon(symbolImage(model[@"icon"], nil, 15));
 	button.image = icon;
 	button.contentTintColor = namedColor(model[@"iconColor"]);
 	button.title = model[@"buttonTitle"] ?: @"";
