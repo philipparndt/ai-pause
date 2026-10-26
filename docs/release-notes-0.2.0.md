@@ -1,0 +1,3 @@
+- A single agent session can be paused on its own, in any mode: expand its row and click *Pause*. Polite makes the Claude hook and `ai-pause check` refuse only inside that session; throttle and freeze apply to its processes. This replaces *Freeze* per session
+- Hovering a CPU chart highlights the bar under the pointer and shows its value in place of the current one
+- CPU charts share a scale: 100% (one CPU) at the top, switching to 1000% and drawn red once a chart goes above 100%
