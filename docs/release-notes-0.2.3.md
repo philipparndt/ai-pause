@@ -1,0 +1,1 @@
+- While paused, the menu bar icon is white like the other menu bar icons instead of dark
