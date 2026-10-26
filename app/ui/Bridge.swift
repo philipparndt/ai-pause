@@ -88,10 +88,20 @@ final class SettingsController: NSObject, NSWindowDelegate {
             w.backgroundColor = NSColor(srgbRed: 0.078, green: 0.078, blue: 0.086, alpha: 1)
             w.isReleasedWhenClosed = false
             w.delegate = self
-            w.minSize = NSSize(width: 520, height: 400)
-            w.contentView = NSHostingView(rootView: SettingsView(store: Store.shared))
+            // Narrower, the mode table wraps its labels a few characters per line. The hosting
+            // view sets the window's minimum size from the view's, so the minimum goes there.
+            let minSize = NSSize(width: 640, height: 400)
+            w.contentView = NSHostingView(rootView: SettingsView(store: Store.shared)
+                .frame(minWidth: minSize.width, minHeight: minSize.height))
             w.setFrameAutosaveName("settings")
             if !w.setFrameUsingName("settings") { w.center() }
+            // A restored frame ignores the minimum size.
+            let minWidth = w.frameRect(forContentRect: NSRect(origin: .zero, size: minSize)).width
+            if w.frame.width < minWidth {
+                var f = w.frame
+                f.size.width = minWidth
+                w.setFrame(f, display: false)
+            }
             window = w
         }
         NSApp.activate(ignoringOtherApps: true)
