@@ -1,0 +1,1 @@
+- The popover's arrow under the menu bar icon has the same dark background as the popover instead of a lighter gray
