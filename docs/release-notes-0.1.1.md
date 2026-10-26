@@ -1,0 +1,1 @@
+- The menu bar icon is now vertically centered like the system icons; it sat slightly too high
