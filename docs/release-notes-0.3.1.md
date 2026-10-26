@@ -1,0 +1,3 @@
+- Homebrew upgrades no longer ask for your password and keep AI Pause running and starting at login. The upgrade to this version still asks once, because Homebrew removes the old version with its old instructions
+- Processes frozen by AI Pause are released when it's asked to quit from outside, e.g. by Homebrew during an upgrade, not only through its Quit menu item
+- `brew uninstall` keeps the login item; run `ai-pause uninstall-login` first, or uninstall with `--zap`
